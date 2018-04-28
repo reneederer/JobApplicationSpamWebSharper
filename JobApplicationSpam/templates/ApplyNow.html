@@ -1,0 +1,33 @@
+﻿<div ws-children-template="ApplyNow">
+    <h1>Apply now</h1>
+    <button ws-onclick="Change">change</button>
+    <button ws-onclick="Change2">change2</button>
+    <div ws-replace="SelectDocument"></div>
+    <button ws-onclick="MoveUp">up</button>
+    <button ws-onclick="MoveDown">down</button>
+    <div ws-hole="DocumentFiles">
+        <div ws-template="DocumentFile">
+            <button ws-onclick="Click" ws-attr="isactive">${Name}</button>
+            <button ws-onclick="Delete">delete</button>
+            <button ws-onclick="MoveUp">MoveUp</button>
+            <button ws-onclick="MoveDown">MoveDown</button>
+        </div>
+
+    </div>
+    <div ws-replace="JobName"></div>
+    <div ws-replace="UserEmail"></div>
+    <button>Apply now</button>
+    <input type="button" value="Apply now">
+    <h3>Employer</h3>
+    <div ws-replace="Gender"></div>
+    <div ws-replace="Degree"></div>
+    <div ws-replace="FirstName"></div>
+    <div ws-replace="LastName"></div>
+    <div ws-replace="Street"></div>
+    <div ws-replace="Postcode"></div>
+    <div ws-replace="City"></div>
+    <div ws-replace="Email"></div>
+    <div ws-replace="Phone"></div>
+    <div ws-replace="MobilePhone"></div>
+    <button>Apply now</button>
+</div>
