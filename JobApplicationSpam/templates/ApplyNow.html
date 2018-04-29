@@ -7,10 +7,10 @@
     <button ws-onclick="MoveDown">down</button>
     <div ws-hole="DocumentFiles">
         <div ws-template="DocumentFile">
-            <button ws-onclick="Click" ws-attr="isactive">${Name}</button>
+            <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
             <button ws-onclick="Delete">delete</button>
             <button ws-onclick="MoveUp">MoveUp</button>
-            <button ws-onclick="MoveDown">MoveDown</button>
+            <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
         </div>
 
     </div>

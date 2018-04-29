@@ -2,11 +2,10 @@
 
 open WebSharper
 open WebSharper.JavaScript
-open WebSharper.JQuery
 open WebSharper.UI.Next
 open WebSharper.UI.Next.Client
-open WebSharper.UI.Next.Templating
 open WebSharper.UI.Next.Html
+open Types
 
 [<JavaScript>]
 module List =
@@ -33,6 +32,19 @@ module List =
             if f x2
             then x2::x1::rest
             else x1::moveUp f (x2::rest)
+    let rec replace i v xs =
+        match i, xs with
+        | _, [] -> []
+        | 0, x::rest ->
+            v::rest
+        | _, x::rest ->
+            x::(replace (i - 1) v rest)
+    let rec mapAtOrDefault i (f : 'a -> 'b) (d : 'b) xs =
+        match i, xs with
+        | 0, x::_ ->
+            f x
+        | _, _::rest -> mapAtOrDefault (i - 1) f d rest
+        | _ -> d
 
 [<JavaScript>]
 module Client =
@@ -42,88 +54,10 @@ module Client =
     type EmailTemplate = Templating.Template<"templates/Email.html">
     type Templates = Templating.Template<"templates/Templates.html">
 
-    type DocumentFile =
-        { name : string
-          size : int
-        }
-    type Document =
-        { name : string
-          files : list<DocumentFile>
-        }
-    
-    type Gender = 
-        | Male
-        | Female
-        | Unknown
-    type UserValues =
-        {
-          gender : Gender
-          degree : string
-          name : string
-          street : string
-          postcode : string
-          city : string
-          email : string
-          phone : string
-          mobilePhone : string
-        }
-    let emptyUserValues =
-        { gender = Gender.Unknown
-          degree = ""
-          name = ""
-          street = ""
-          postcode = ""
-          city = ""
-          email = ""
-          phone = ""
-          mobilePhone = ""
-        }
-    type User = 
-        | LoggedInUser of UserValues
-        | Guest of UserValues
-        with
-            member this.Values() =
-                match this with
-                | LoggedInUser userValues -> userValues
-                | Guest userValues -> userValues
-            member this.Values(values) =
-                match this with
-                | LoggedInUser _ -> LoggedInUser values
-                | Guest _ -> Guest values
-
-    type Email =
-        { subject : string
-          body : string
-        }
-    type Employer =
-        { company : string
-          street : string
-          postcode : string
-          city : string
-          gender : Gender
-          degree : string
-          firstName : string
-          lastName : string
-          email : string
-          phone : string
-          mobilePhone : string
-        }
-    let emptyEmployer =
-        { company = ""
-          street = ""
-          postcode = ""
-          city = ""
-          gender = Gender.Unknown
-          degree = ""
-          firstName = ""
-          lastName = ""
-          email = ""
-          phone = ""
-          mobilePhone = ""
-        }
     type State =
         { documents : list<Document>
           activeFileName : string
+          activeDocumentName : string
           employer : Employer
           user : User
           email : Email
@@ -161,17 +95,46 @@ module Client =
           user : UserRefs
           employer : EmployerRefs
           email : EmailRefs
+          activeFileName : IRef<string>
+          activeDocumentName : IRef<string>
+          files : IRef<list<DocumentFile>>
         }
-    let state =
+    let state : Var<State> =
         Var.Create
-            { documents = []
+            { documents =
+                [
+                  { files = [{name = "AAA"; size = 0}];
+                    name="Doc 1"
+                  }
+                  { files = [{name = "XX"; size = 0}; {name = "YY"; size = 0}; {name = "ZZ"; size = 0}];
+                    name="Doc 2"
+                  }
+                  { files = [{name = "D"; size = 0}; {name = "E"; size = 0}; {name = "F"; size = 0}];
+                    name="Doc 3"
+                  }
+                  { files = [{name = "u"; size = 0}; {name = "v"; size = 0}];
+                    name="Doc 4"
+                  }
+                ]
               activeFileName = ""
+              activeDocumentName = "Doc 1"
               employer = emptyEmployer
               user = Guest emptyUserValues
               email = { subject = ""; body = "" }
             }
     let stateRefs =
         { documents = state.Lens (fun s -> s.documents) (fun s v -> { s with documents = v })
+          files =
+              state.Lens
+                  (fun s ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      let xs = List.mapAtOrDefault documentIndex (fun (x : Document) -> x.files) [] s.documents
+                      xs)
+                  (fun s v ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      if List.length s.documents <= documentIndex
+                      then s
+                      else { s with documents = List.replace documentIndex {s.documents.[documentIndex] with files = v} s.documents })
           user =
             { gender = Var.Create Gender.Male
               degree = state.Lens (fun s -> s.user.Values().degree) (fun s v -> { s with user = s.user.Values({ s.user.Values() with degree = v })})
@@ -200,6 +163,8 @@ module Client =
             { subject = state.Lens (fun s -> s.email.subject) (fun s v -> { s with email = { s.email with subject = v }})
               body = state.Lens (fun s -> s.email.body) (fun s v -> { s with email = { s.email with body = v }})
             }
+          activeFileName = state.Lens (fun s -> s.activeFileName) (fun s v -> { s with activeFileName = v })
+          activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
         }
     
     let createRadioButton (header : string) (items : list<string * 'a>) (ref : IRef<'a>) =
@@ -221,37 +186,43 @@ module Client =
                     )
             )
           )
+    
+    let createSelect  items ref =
+        Doc.SelectDyn
+            []
+            id
+            items
+            ref
 
-    let files = 
-        Var.Create [ { size = 3; name = "John"}; {size = 34; name= "Paul" }]
-
-    [<JavaScript>]
     let Main () =
-        let newName = Var.Create ""
         let applyNowTemplate =
             ApplyNowTemplate.ApplyNow()
                 .DocumentFiles(
-                    files.View.DocSeqCached(fun (file : DocumentFile) ->
-                        ApplyNowTemplate.DocumentFile()
-                            .Name(file.name)
-                            .Click(fun () ->
-                                JS.Alert(file.name)
+                        stateRefs.files.View.DocSeqCached(fun (file : DocumentFile) ->
+                                ApplyNowTemplate.DocumentFile()
+                                    .Name(file.name)
+                                    .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = file.name))
+                                    //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
+                                    .Click(fun () ->
+                                        stateRefs.activeFileName.Value <- file.name
+                                    )
+                                    .Delete(fun _ ->
+                                        stateRefs.files.Value <- stateRefs.files.Value |> List.removeFirst (fun x -> x.name = file.name))
+                                    .MoveUp(fun _ ->
+                                        stateRefs.files.Value <- stateRefs.files.Value |> List.moveUp (fun x -> x.name = file.name))
+                                    .MoveDown(fun _ ->
+                                        stateRefs.files.Value <- stateRefs.files.Value |> List.moveDown (fun x -> x.name = file.name))
+                                    .Doc()
                             )
-                            .Delete(fun _ ->
-                                files.Value <- files.Value |> List.removeFirst (fun x -> x.name = file.name))
-                            .MoveUp(fun _ ->
-                                files.Value <- List.moveUp (fun x -> x.name = file.name) files.Value)
-                            .MoveDown(fun _ ->
-                                files.Value <- List.moveDown (fun x -> x.name = file.name) files.Value)
-                            .Doc()
-                    )
                 )
-                .Change(fun _ ->
-                    files.Value <- ([{ size = 88; name = "Hallo" }; {size=0; name="Welt"}])
+                .SelectDocument(createSelect (stateRefs.documents.View.Map(fun ds -> ds |> (List.map (fun (x : Document) -> x.name)))) stateRefs.activeDocumentName
                 )
-                .Change2(fun _ ->
-                    files.Value <- ([{ size = 88; name = "abc" }; {size = 0; name="def"}; {size = 0; name="ghi"}])
-                )
+                //.Change(fun () ->
+                //    files.Value <- ([{ size = 88; name = "Hallo" }; {size=0; name="Welt"}])
+                //)
+                //.Change2(fun () ->
+                //    files.Value <- ([{ size = 88; name = "abc" }; {size = 0; name="def"}; {size = 0; name="ghi"}])
+                //)
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female); ("Unknown", Gender.Unknown) ] stateRefs.employer.gender)
                 .Degree(Templates.InputField().Id("employerDegree").LabelText("Degree").Var(stateRefs.employer.degree).Doc())
                 .FirstName(Templates.InputField().Id("employerCity").LabelText("City").Var(stateRefs.employer.firstName).Doc())
