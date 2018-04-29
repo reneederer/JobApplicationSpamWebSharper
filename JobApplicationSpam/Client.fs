@@ -5,6 +5,7 @@ open WebSharper.JavaScript
 open WebSharper.UI.Next
 open WebSharper.UI.Next.Client
 open WebSharper.UI.Next.Html
+open WebSharper.JQuery
 open Types
 
 [<JavaScript>]
@@ -48,10 +49,14 @@ module List =
 
 [<JavaScript>]
 module Client =
+    open System.Net.Configuration
+
     type SentApplicationsTemplate = Templating.Template<"templates/SentApplications.html">
     type UserValuesTemplate = Templating.Template<"templates/UserValues.html">
     type ApplyNowTemplate = Templating.Template<"templates/ApplyNow.html">
     type EmailTemplate = Templating.Template<"templates/Email.html">
+    type LoginTemplate = Templating.Template<"templates/Login.html">
+    type RegisterTemplate = Templating.Template<"templates/Register.html">
     type Templates = Templating.Template<"templates/Templates.html">
 
     type State =
@@ -61,6 +66,8 @@ module Client =
           employer : Employer
           user : User
           email : Email
+          login : Login
+          register : Register
         }
     type UserRefs =
         { gender : IRef<Gender>
@@ -90,6 +97,14 @@ module Client =
         { subject : IRef<string>
           body : IRef<string>
         }
+    type LoginRefs =
+        { email : IRef<string>
+          password : IRef<string>
+        }
+    type RegisterRefs =
+        { email : IRef<string>
+          password : IRef<string>
+        }
     type StateRefs =
         { documents : IRef<list<Document>>
           user : UserRefs
@@ -98,6 +113,8 @@ module Client =
           activeFileName : IRef<string>
           activeDocumentName : IRef<string>
           files : IRef<list<DocumentFile>>
+          login : LoginRefs
+          register : RegisterRefs
         }
     let state : Var<State> =
         Var.Create
@@ -121,6 +138,8 @@ module Client =
               employer = emptyEmployer
               user = Guest emptyUserValues
               email = { subject = ""; body = "" }
+              login = { email = ""; password = "" }
+              register = { email = ""; password = "" }
             }
     let stateRefs =
         { documents = state.Lens (fun s -> s.documents) (fun s v -> { s with documents = v })
@@ -163,8 +182,17 @@ module Client =
             { subject = state.Lens (fun s -> s.email.subject) (fun s v -> { s with email = { s.email with subject = v }})
               body = state.Lens (fun s -> s.email.body) (fun s v -> { s with email = { s.email with body = v }})
             }
+          login =
+            { email = state.Lens (fun s -> s.login.email) (fun s v -> { s with login = { s.login with email = v }})
+              password = state.Lens (fun s -> s.login.password) (fun s v -> { s with login = { s.login with password = v }})
+            }
+          register =
+            { email = state.Lens (fun s -> s.register.email) (fun s v -> { s with register = { s.register with email = v }})
+              password = state.Lens (fun s -> s.register.password) (fun s v -> { s with register = { s.register with password = v }})
+            }
           activeFileName = state.Lens (fun s -> s.activeFileName) (fun s v -> { s with activeFileName = v })
           activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
+
         }
     
     let createRadioButton (header : string) (items : list<string * 'a>) (ref : IRef<'a>) =
@@ -195,6 +223,18 @@ module Client =
             ref
 
     let Main () =
+        let oSessionGuid = Cookies.Get("sessionGuid")
+        if oSessionGuid |> Optional.isDefined then
+            async {
+                let! rLogin = Server.loginWithSessionGuid oSessionGuid.Value
+                match rLogin with
+                | Ok user ->
+                    state.Value <- { state.Value with user = user }
+                    JS.Alert("logged in!")
+                | Failure _ -> JS.Alert("Failed to log you in")
+                | Error msg -> JS.Alert("Sorry, an error occurred")
+                | _ -> ()
+            } |> Async.Start
         let applyNowTemplate =
             ApplyNowTemplate.ApplyNow()
                 .DocumentFiles(
@@ -225,8 +265,8 @@ module Client =
                 //)
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female); ("Unknown", Gender.Unknown) ] stateRefs.employer.gender)
                 .Degree(Templates.InputField().Id("employerDegree").LabelText("Degree").Var(stateRefs.employer.degree).Doc())
-                .FirstName(Templates.InputField().Id("employerCity").LabelText("City").Var(stateRefs.employer.firstName).Doc())
-                .LastName(Templates.InputField().Id("employerCity").LabelText("City").Var(stateRefs.employer.lastName).Doc())
+                .FirstName(Templates.InputField().Id("firstName").LabelText("First name").Var(stateRefs.employer.firstName).Doc())
+                .LastName(Templates.InputField().Id("lastName").LabelText("Last name").Var(stateRefs.employer.lastName).Doc())
                 .Street(Templates.InputField().Id("employerStreet").LabelText("Street").Var(stateRefs.employer.street).Doc())
                 .Postcode(Templates.InputField().Id("employerPostcode").LabelText("Postcode").Var(stateRefs.employer.postcode).Doc())
                 .City(Templates.InputField().Id("employerCity").LabelText("City").Var(stateRefs.employer.city).Doc())
@@ -238,7 +278,7 @@ module Client =
             UserValuesTemplate.UserValues()
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female) ] stateRefs.user.gender)
                 .Degree(Templates.InputField().Id("userDegree").LabelText("Degree").Var(stateRefs.user.degree).Doc())
-                .Name(Templates.InputField().Id("userCity").LabelText("City").Var(stateRefs.user.name).Doc())
+                .Name(Templates.InputField().Id("name").LabelText("Name").Var(stateRefs.user.name).Doc())
                 .Street(Templates.InputField().Id("userStreet").LabelText("Street").Var(stateRefs.user.street).Doc())
                 .Postcode(Templates.InputField().Id("userPostcode").LabelText("Postcode").Var(stateRefs.user.postcode).Doc())
                 .City(Templates.InputField().Id("userCity").LabelText("City").Var(stateRefs.user.city).Doc())
@@ -251,5 +291,40 @@ module Client =
                 .Subject(Templates.InputField().Id("emailSubject").LabelText("Subject").Var(stateRefs.email.subject).Doc())
                 .Body(Templates.TextareaField().Id("emailBody").LabelText("Body").MinHeight("400px").Var(stateRefs.email.body).Doc())
                 .Doc()
-        Doc.Concat [applyNowTemplate; emailTemplate; userValuesTemplate]
+        let loginTemplate =
+            LoginTemplate.Login()
+                .Email(Templates.InputField().Id("loginEmail").LabelText("Email").Var(stateRefs.login.email).Doc())
+                .Password(Templates.PasswordField().Id("loginPassword").LabelText("Password").Var(stateRefs.login.password).Doc())
+                .Login(fun () ->
+                    async {
+                        let! rLogin = Server.loginWithEmailAndPassword state.Value.login.email state.Value.login.password
+                        match rLogin with
+                        | Ok (sessionGuid, user) ->
+                            Cookies.Set("sessionGuid", sessionGuid)
+                            state.Value <- { state.Value with user = user }
+                            JS.Alert("You have been logged in")
+                        | Failure msg -> JS.Alert(msg)
+                        | _ -> JS.Alert("Sorry an error occurred.")
+                    } |> Async.Start
+                )
+                .Doc()
+        let registerTemplate =
+            RegisterTemplate.Register()
+                .Email(Templates.InputField().Id("registerEmail").LabelText("Email").Var(stateRefs.register.email).Doc())
+                .Password(Templates.PasswordField().Id("registerPassword").LabelText("Password").Var(stateRefs.register.password).Doc())
+                .Register(fun () ->
+                    async {
+                        let! rRegister = Server.register state.Value.register.email state.Value.register.password
+                        match rRegister with
+                        | Ok (sessionGuid, user) ->
+                            Cookies.Set("sessionGuid", sessionGuid)
+                            state.Value <- { state.Value with user = user }
+                            JS.Alert("Registration was successful")
+                        | Failure msg -> JS.Alert(msg)
+                        | Error msg -> JS.Alert("Sorry, an error occurred")
+                        | _ -> ()
+                    } |> Async.Start
+                )
+                .Doc()
+        Doc.Concat [loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
 

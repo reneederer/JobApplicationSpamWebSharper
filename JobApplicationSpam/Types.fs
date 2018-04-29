@@ -31,7 +31,14 @@ module Types =
                 | "f" -> Gender.Female
                 | "u" -> Gender.Unknown
                 | x -> failwith ("Gender not found: " + x)
-        
+    type Login =
+        { email : string
+          password : string
+        }
+    type Register =
+        { email : string
+          password : string
+        }
     type UserValues =
         { gender : Gender
           degree : string
@@ -97,3 +104,9 @@ module Types =
                 match this with
                 | LoggedInUser _ -> LoggedInUser userValues
                 | Guest _ -> Guest userValues
+
+    type Result<'a> =
+    | Ok of 'a
+    | Failure of string
+    | Warning of string
+    | Error of string

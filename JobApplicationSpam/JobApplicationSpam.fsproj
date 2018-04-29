@@ -20,7 +20,7 @@
     <TargetFSharpCoreVersion>4.4.3.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>JobApplicationSpam</Name>
-    <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
+    <LastActiveSolutionConfig>Release|Any CPU</LastActiveSolutionConfig>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <TargetFrameworkProfile />
@@ -61,7 +61,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="Npgsql">
-      <HintPath>..\packages\Npgsql.4.0.0-preview2\lib\net451\Npgsql.dll</HintPath>
+      <HintPath>..\packages\Npgsql.3.1.0\lib\net451\Npgsql.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="System" />
@@ -174,7 +174,11 @@
     <Content Include="templates\SentApplications.html" />
     <Content Include="templates\Templates.html" />
     <Content Include="templates\UserValues.html" />
-    <Content Include="log4net.config" />
+    <Content Include="templates\Login.html" />
+    <Content Include="templates\register.html" />
+    <Content Include="log4net.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Include="JobApplicationSpam.sql" />
   </ItemGroup>
   <Target Name="IncludeContent" BeforeTargets="Compile">
@@ -245,13 +249,13 @@
       </FlavorProperties>
     </VisualStudio>
   </ProjectExtensions>
-  <Import Project="..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets" Condition="Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
     </PropertyGroup>
-    <Error Condition="!Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets'))" />
     <Error Condition="!Exists('..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets'))" />
+    <Error Condition="!Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets'))" />
   </Target>
   <Import Project="..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets" Condition="Exists('..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets')" />
+  <Import Project="..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets" Condition="Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" />
 </Project>

@@ -5,6 +5,7 @@ open WebSharper.Sitelets
 open WebSharper.UI.Next
 open WebSharper.UI.Next.Server
 
+
 type EndPoint =
     | [<EndPoint "/">] Home
 
@@ -23,6 +24,10 @@ module Templating =
 
 module Site =
     open WebSharper.UI.Next.Html
+    open System.IO
+    open log4net
+
+    log4net.Config.XmlConfigurator.Configure(new FileInfo("log4net.config")) |> ignore
 
     let HomePage ctx =
         Templating.Main ctx EndPoint.Home "Bewerbungsspam" [

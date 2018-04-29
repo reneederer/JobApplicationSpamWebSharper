@@ -45,7 +45,7 @@ create table sentStatusValue(id int primary key, status text not null);
 create table sentStatus(id serial primary key, sentApplicationId int not null, statusChangedOn date not null, dueOn timestamp null, sentStatusValueId int not null, statusMessage text not null, foreign key(sentApplicationId) references sentApplication(id), foreign key(sentStatusValueId) references sentStatusValue(id));
 create table link(id serial primary key, path text not null, guid text not null, name text not null);
 
-insert into users(email, password, salt, confirmEmailGuid, sessionGuid, createdOn, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values('rene.ederer.ng@gmail.com', 'r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date, 'm', '', 'René Ederer', 'Raabstr. 24A', '90429', 'Nürnberg', 'kein Telefon', 'kein Handy');
+insert into users(email, password, salt, confirmEmailGuid, sessionGuid, createdOn, gender, degree, name, street, postcode, city, phone, mobilePhone) values('rene.ederer.nbg@gmail.com', 'r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date, 'm', '', 'René Ederer', 'Raabstr. 24A', '90429', 'Nürnberg', 'kein Telefon', 'kein Handy');
 /*
 insert into document(userId, name, jobName, customVariables) values(1, 'mein htmlTemplate', 'Fachinformatiker', '');
 insert into document(userId, name, jobName, customVariables) values(1, 'mein zweites htmlTemplate', 'Automechaniker', '');
