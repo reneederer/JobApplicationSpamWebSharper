@@ -41,9 +41,6 @@
     <DefineConstants>TRACE</DefineConstants>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.3.4\lib\net45\FSharp.Core.dll</HintPath>
-    </Reference>
     <Reference Include="FSharp.Data">
       <HintPath>..\packages\FSharp.Data.3.0.0-beta3\lib\net45\FSharp.Data.dll</HintPath>
     </Reference>
@@ -175,7 +172,10 @@
     <Content Include="templates\Templates.html" />
     <Content Include="templates\UserValues.html" />
     <Content Include="templates\Login.html" />
-    <Content Include="templates\register.html" />
+    <Content Include="templates\Register.html" />
+    <Content Include="templates\ChangePassword.html" />
+    <Content Include="templates\ForgotPassword.html" />
+    <Content Include="templates\ChangeEmail.html" />
     <Content Include="log4net.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

@@ -7,13 +7,23 @@ open WebSharper.UI.Next.Server
 
 [<JavaScript>]
 module Types =
-    type DocumentFile =
+    type FilePage =
         { name : string
           size : int
         }
+    type HtmlPage =
+        { name : string }
+    type Page =
+    | FilePage of FilePage
+    | HtmlPage of HtmlPage
+    with
+        member this.Name() =
+            match this with
+            | FilePage filePage -> filePage.name
+            | HtmlPage htmlPage -> htmlPage.name
     type Document =
         { name : string
-          files : list<DocumentFile>
+          pages : list<Page>
         }
     type Gender = 
         | Male
@@ -38,6 +48,15 @@ module Types =
     type Register =
         { email : string
           password : string
+        }
+    type ChangePassword =
+        { password : string
+        }
+    type ForgotPassword =
+        { email : string
+        }
+    type ChangeEmail =
+        { email : string
         }
     type UserValues =
         { gender : Gender
@@ -108,5 +127,4 @@ module Types =
     type Result<'a> =
     | Ok of 'a
     | Failure of string
-    | Warning of string
-    | Error of string
+    | Error

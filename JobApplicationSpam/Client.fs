@@ -57,6 +57,9 @@ module Client =
     type EmailTemplate = Templating.Template<"templates/Email.html">
     type LoginTemplate = Templating.Template<"templates/Login.html">
     type RegisterTemplate = Templating.Template<"templates/Register.html">
+    type ChangePasswordTemplate = Templating.Template<"templates/ChangePassword.html">
+    type ForgotPasswordTemplate = Templating.Template<"templates/ForgotPassword.html">
+    type ChangeEmailTemplate = Templating.Template<"templates/ChangeEmail.html">
     type Templates = Templating.Template<"templates/Templates.html">
 
     type State =
@@ -68,6 +71,9 @@ module Client =
           email : Email
           login : Login
           register : Register
+          changePassword : ChangePassword
+          forgotPassword : ForgotPassword
+          changeEmail : ChangeEmail
         }
     type UserRefs =
         { gender : IRef<Gender>
@@ -105,6 +111,15 @@ module Client =
         { email : IRef<string>
           password : IRef<string>
         }
+    type ChangePasswordRefs =
+        { password : IRef<string>
+        }
+    type ForgotPasswordRefs =
+        { email : IRef<string>
+        }
+    type ChangeEmailRefs =
+        { email : IRef<string>
+        }
     type StateRefs =
         { documents : IRef<list<Document>>
           user : UserRefs
@@ -112,24 +127,28 @@ module Client =
           email : EmailRefs
           activeFileName : IRef<string>
           activeDocumentName : IRef<string>
-          files : IRef<list<DocumentFile>>
+          pages : IRef<list<Page>>
           login : LoginRefs
           register : RegisterRefs
+          changePassword : ChangePasswordRefs
+          forgotPassword : ForgotPasswordRefs
+          changeEmail : ChangeEmailRefs
         }
     let state : Var<State> =
         Var.Create
             { documents =
                 [
-                  { files = [{name = "AAA"; size = 0}];
+                  { pages =
+                        [FilePage {name = "AAA"; size = 0}];
                     name="Doc 1"
                   }
-                  { files = [{name = "XX"; size = 0}; {name = "YY"; size = 0}; {name = "ZZ"; size = 0}];
+                  { pages = [ FilePage {name = "XX"; size = 0};  FilePage {name = "YY"; size = 0};  FilePage {name = "ZZ"; size = 0}];
                     name="Doc 2"
                   }
-                  { files = [{name = "D"; size = 0}; {name = "E"; size = 0}; {name = "F"; size = 0}];
+                  { pages = [ FilePage {name = "D"; size = 0};  FilePage {name = "E"; size = 0};  FilePage {name = "F"; size = 0}];
                     name="Doc 3"
                   }
-                  { files = [{name = "u"; size = 0}; {name = "v"; size = 0}];
+                  { pages = [ FilePage {name = "u"; size = 0};  FilePage {name = "v"; size = 0}];
                     name="Doc 4"
                   }
                 ]
@@ -138,22 +157,36 @@ module Client =
               employer = emptyEmployer
               user = Guest emptyUserValues
               email = { subject = ""; body = "" }
-              login = { email = ""; password = "" }
+              login = { email = "rene.ederer.nbg@gmail.com"; password = "1234" }
               register = { email = ""; password = "" }
+              changePassword = { password = "" }
+              forgotPassword = { email = ""; }
+              changeEmail = { email = ""; }
             }
     let stateRefs =
-        { documents = state.Lens (fun s -> s.documents) (fun s v -> { s with documents = v })
-          files =
+        { documents =
+            state.Lens
+                (fun s -> s.documents)
+                (fun s v ->
+                    if v <> []
+                    then
+                        { s with
+                            activeDocumentName = v.Head.name
+                            documents = v
+                        }
+                    else s
+                )
+          pages =
               state.Lens
                   (fun s ->
                       let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
-                      let xs = List.mapAtOrDefault documentIndex (fun (x : Document) -> x.files) [] s.documents
+                      let xs = List.mapAtOrDefault documentIndex (fun (x : Document) -> x.pages) [] s.documents
                       xs)
-                  (fun s v ->
+                  (fun s (v : list<Page>) ->
                       let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
                       if List.length s.documents <= documentIndex
                       then s
-                      else { s with documents = List.replace documentIndex {s.documents.[documentIndex] with files = v} s.documents })
+                      else { s with documents = List.replace documentIndex {s.documents.[documentIndex] with pages = v} s.documents })
           user =
             { gender = Var.Create Gender.Male
               degree = state.Lens (fun s -> s.user.Values().degree) (fun s v -> { s with user = s.user.Values({ s.user.Values() with degree = v })})
@@ -190,6 +223,15 @@ module Client =
             { email = state.Lens (fun s -> s.register.email) (fun s v -> { s with register = { s.register with email = v }})
               password = state.Lens (fun s -> s.register.password) (fun s v -> { s with register = { s.register with password = v }})
             }
+          changePassword =
+            { password = state.Lens (fun s -> s.changePassword.password) (fun s v -> { s with changePassword = { s.changePassword with password = v }})
+            }
+          forgotPassword =
+            { email = state.Lens (fun s -> s.forgotPassword.email) (fun s v -> { s with forgotPassword = { s.forgotPassword with email = v }})
+            }
+          changeEmail =
+            { email = state.Lens (fun s -> s.changeEmail.email) (fun s v -> { s with changeEmail = { s.changeEmail with email = v }})
+            }
           activeFileName = state.Lens (fun s -> s.activeFileName) (fun s v -> { s with activeFileName = v })
           activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
 
@@ -215,14 +257,26 @@ module Client =
             )
           )
     
-    let createSelect  items ref =
+    let createSelect elementId items ref =
         Doc.SelectDyn
-            []
+            [attr.id elementId]
             id
             items
             ref
 
     let Main () =
+        let loadDocuments () =
+            async {
+                JS.Alert("loading documents!")
+                let! rDocuments = Server.getDocuments()
+                match rDocuments with
+                | Ok documents ->
+                    JS.Alert("OK documents " + documents.Head.name) 
+                    stateRefs.documents.Value <- documents
+                    JS.Alert("pages: " + stateRefs.documents.Value.Head.pages.Head.Name())
+                | Failure msg -> JS.Alert msg
+                | Error -> JS.Alert("Sorry, an error occurred")
+            }
         let oSessionGuid = Cookies.Get("sessionGuid")
         if oSessionGuid |> Optional.isDefined then
             async {
@@ -230,32 +284,36 @@ module Client =
                 match rLogin with
                 | Ok user ->
                     state.Value <- { state.Value with user = user }
+                    do! loadDocuments ()
                     JS.Alert("logged in!")
                 | Failure _ -> JS.Alert("Failed to log you in")
-                | Error msg -> JS.Alert("Sorry, an error occurred")
-                | _ -> ()
+                | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
         let applyNowTemplate =
             ApplyNowTemplate.ApplyNow()
-                .DocumentFiles(
-                        stateRefs.files.View.DocSeqCached(fun (file : DocumentFile) ->
-                                ApplyNowTemplate.DocumentFile()
-                                    .Name(file.name)
-                                    .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = file.name))
-                                    //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
-                                    .Click(fun () ->
-                                        stateRefs.activeFileName.Value <- file.name
-                                    )
-                                    .Delete(fun _ ->
-                                        stateRefs.files.Value <- stateRefs.files.Value |> List.removeFirst (fun x -> x.name = file.name))
-                                    .MoveUp(fun _ ->
-                                        stateRefs.files.Value <- stateRefs.files.Value |> List.moveUp (fun x -> x.name = file.name))
-                                    .MoveDown(fun _ ->
-                                        stateRefs.files.Value <- stateRefs.files.Value |> List.moveDown (fun x -> x.name = file.name))
-                                    .Doc()
+                .DocumentPages(
+                        stateRefs.pages.View.DocSeqCached(fun (page : Page) ->
+                                match page with
+                                | FilePage filePage ->
+                                    ApplyNowTemplate.DocumentFile()
+                                        .Name(filePage.name)
+                                        .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
+                                        //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
+                                        .Click(fun () ->
+                                            stateRefs.activeFileName.Value <- filePage.name
+                                        )
+                                        .Delete(fun _ ->
+                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name))
+                                        .MoveUp(fun _ ->
+                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name))
+                                        .MoveDown(fun _ ->
+                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name))
+                                        .Doc()
+                                | HtmlPage htmlPage ->
+                                    Doc.Empty
                             )
                 )
-                .SelectDocument(createSelect (stateRefs.documents.View.Map(fun ds -> ds |> (List.map (fun (x : Document) -> x.name)))) stateRefs.activeDocumentName
+                .SelectDocument(createSelect "selectDocument" (stateRefs.documents.View.Map(fun ds -> ds |> (List.map (fun (x : Document) -> x.name)))) stateRefs.activeDocumentName
                 )
                 //.Change(fun () ->
                 //    files.Value <- ([{ size = 88; name = "Hallo" }; {size=0; name="Welt"}])
@@ -295,13 +353,14 @@ module Client =
             LoginTemplate.Login()
                 .Email(Templates.InputField().Id("loginEmail").LabelText("Email").Var(stateRefs.login.email).Doc())
                 .Password(Templates.PasswordField().Id("loginPassword").LabelText("Password").Var(stateRefs.login.password).Doc())
-                .Login(fun () ->
+                .Submit(fun () ->
                     async {
                         let! rLogin = Server.loginWithEmailAndPassword state.Value.login.email state.Value.login.password
                         match rLogin with
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
                             state.Value <- { state.Value with user = user }
+                            do! loadDocuments ()
                             JS.Alert("You have been logged in")
                         | Failure msg -> JS.Alert(msg)
                         | _ -> JS.Alert("Sorry an error occurred.")
@@ -312,17 +371,45 @@ module Client =
             RegisterTemplate.Register()
                 .Email(Templates.InputField().Id("registerEmail").LabelText("Email").Var(stateRefs.register.email).Doc())
                 .Password(Templates.PasswordField().Id("registerPassword").LabelText("Password").Var(stateRefs.register.password).Doc())
-                .Register(fun () ->
+                .Submit(fun () ->
                     async {
                         let! rRegister = Server.register state.Value.register.email state.Value.register.password
                         match rRegister with
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
                             state.Value <- { state.Value with user = user }
+                            do! loadDocuments ()
                             JS.Alert("Registration was successful")
                         | Failure msg -> JS.Alert(msg)
-                        | Error msg -> JS.Alert("Sorry, an error occurred")
-                        | _ -> ()
+                        | Error -> JS.Alert("Sorry, an error occurred")
+                    } |> Async.Start
+                )
+                .Doc()
+        let changePasswordTemplate =
+            ChangePasswordTemplate.ChangePassword()
+                .Password(Templates.PasswordField().Id("registerPassword").LabelText("New password").Var(stateRefs.register.password).Doc())
+                .Submit(fun () ->
+                    async {
+                        let! rChangePassword = Server.changePassword state.Value.changePassword.password
+                        match rChangePassword with
+                        | Ok () ->
+                            JS.Alert("Changing password was successful")
+                        | Failure msg -> JS.Alert(msg)
+                        | Error -> JS.Alert("Sorry, an error occurred")
+                    } |> Async.Start
+                )
+                .Doc()
+        let forgotPasswordTemplate =
+            ForgotPasswordTemplate.ForgotPassword()
+                .Email(Templates.InputField().Id("resendPasswordTo").LabelText("Email").Var(stateRefs.register.password).Doc())
+                .Submit(fun () ->
+                    async {
+                        let! rForgotPassword = Server.register state.Value.register.email state.Value.register.password
+                        match rForgotPassword with
+                        | Ok (sessionGuid, user) ->
+                            JS.Alert("We have sent you a link to your email address. Please visit this link to change your password.")
+                        | Failure msg -> JS.Alert(msg)
+                        | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
                 .Doc()
