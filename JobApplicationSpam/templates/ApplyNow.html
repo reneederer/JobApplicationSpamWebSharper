@@ -1,23 +1,8 @@
 ﻿<div ws-children-template="ApplyNow">
-    <h1>Apply now</h1>
-    <button ws-onclick="Change">change</button>
-    <button ws-onclick="Change2">change2</button>
-    <div ws-replace="SelectDocument"></div>
-    <button ws-onclick="MoveUp">up</button>
-    <button ws-onclick="MoveDown">down</button>
-    <div ws-hole="DocumentPages">
-        <div ws-template="DocumentFile">
-            <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
-            <button ws-onclick="Delete">delete</button>
-            <button ws-onclick="MoveUp">MoveUp</button>
-            <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
-        </div>
-
-    </div>
+    <h3>Apply now</h3>
     <div ws-replace="JobName"></div>
     <div ws-replace="UserEmail"></div>
     <button>Apply now</button>
-    <input type="button" value="Apply now">
     <h3>Employer</h3>
     <div ws-replace="Gender"></div>
     <div ws-replace="Degree"></div>

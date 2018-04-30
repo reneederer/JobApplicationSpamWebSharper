@@ -176,9 +176,10 @@
     <Content Include="templates\ChangePassword.html" />
     <Content Include="templates\ForgotPassword.html" />
     <Content Include="templates\ChangeEmail.html" />
-    <Content Include="log4net.config">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Content Include="templates\DocumentsAndFiles.html" />
+    <Reference Include="log4net.config">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Reference>
     <None Include="JobApplicationSpam.sql" />
   </ItemGroup>
   <Target Name="IncludeContent" BeforeTargets="Compile">

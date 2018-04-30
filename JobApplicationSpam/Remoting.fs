@@ -54,6 +54,7 @@ module Server =
     let connectionStringTest = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest"
 
     let withTransaction (f : DB.dataContext -> Result<'a>) =
+        log.Debug "withTransaction"
         async {
             let dbContext = DB.GetDataContext()
             use dbScope = new TransactionScope()
@@ -70,7 +71,6 @@ module Server =
                     return r
             with
             | e -> 
-                File.WriteAllText("jas.log", e.ToString())
                 log.Error e
                 return Error
         }
@@ -95,14 +95,12 @@ module Server =
         try
             let dbContext = DB.GetDataContext()
             let r = f dbContext
-            File.WriteAllText("c:/users/rene/jas.log", r.ToString())
             dbContext.ClearUpdates() |> ignore
             async { return r }
         with
         | e -> 
             log.Debug "hallo welt"
             log.Error e
-            File.WriteAllText("c:/users/rene/jas.log", e.ToString())
             failwith "Couldn't read from database"
 
     let generateSalt length =
@@ -177,7 +175,6 @@ module Server =
                 async {
                     let! rSessionGuid = updateSessionGuid userId
                     return Ok ("a", Guest emptyUserValues)
-                    //File.WriteAllText("c:/users/rene/jas5.log", "hier!")
                     //match confirmEmailGuid, rSessionGuid with
                     //| (None, Ok sessionGuid) ->
                     //    return Ok (sessionGuid, LoggedInUser userValues)
@@ -350,6 +347,7 @@ module Server =
                                     FilePage
                                       { name = filePage.Name
                                         size = 0
+                                        path = filePage.Path
                                       }
                                   )
                           } |> List.ofSeq
@@ -368,20 +366,94 @@ module Server =
                       yield
                         { name = documentName
                           pages = pages
+                          id = documentId
+                          customVariables = ""
+                          jobName = ""
+                          emailSubject = ""
+                          emailBody = ""
                         }
                 ] |> List.sortBy (fun x -> x.name) |> Ok
         getDocuments1 |> withCurrentUser |> readDB
+    
+    [<Remote>]
+    let deleteDocumentHard (document : Document) =
+        let deleteDocumentHard (document : Document) (dbContext : DB.dataContext) =
+            // Delete file pages
+            query {
+                for filePage in dbContext.Public.Filepage do
+                join page in dbContext.Public.Page on (filePage.Pageid = page.Id)
+                where (page.Documentid = document.id)
+                select (filePage, page)
+            } |> Seq.iter (fun (filePage, page) ->
+                filePage.Delete()
+                dbContext.SubmitUpdates()
+                page.Delete()
+                dbContext.SubmitUpdates()
+            )
 
-    //[<Remote>]
-    //let overwriteDocument (document : Document) =
+            // Delete html pages
+            query {
+                for htmlPage in dbContext.Public.Htmlpage do
+                join page in dbContext.Public.Page on (htmlPage.Pageid = page.Id)
+                where (page.Documentid = document.id)
+                select (htmlPage, page)
+            } |> Seq.iter (fun (htmlPage, page) ->
+                htmlPage.Delete()
+                dbContext.SubmitUpdates()
+                page.Delete()
+                dbContext.SubmitUpdates()
+            )
 
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.overwriteDocument document
-    //            |> withTransaction
-    //            }
+            // Delete lastediteddocumentid
+            dbContext.Public.Lastediteddocumentid.Where(fun doc -> doc.Id = document.id) |> Seq.iter(fun x -> x.Delete())
+            dbContext.SubmitUpdates()
+
+            // Delete document
+            dbContext.Public.Document.Where(fun doc -> doc.Id = document.id) |> Seq.iter(fun x -> x.Delete())
+            dbContext.SubmitUpdates()
+            Ok ()
+        deleteDocumentHard document |> withTransaction
+
+    [<Remote>]
+    let deleteDocumentSoft (document : Document) =
+        let deleteDocumentSoft (document : Document) (dbContext : DB.dataContext) =
+            dbContext.Public.Document.Where(fun doc -> doc.Id = document.id) |> Seq.iter(fun x -> x.Deletedon <- Some DateTime.Now)
+            dbContext.SubmitUpdates()
+            Ok ()
+        deleteDocumentSoft document |> withTransaction
+
+    [<Remote>]
+    let saveAsNewDocument (document : Document) =
+        let saveAsNew (document : Document) (dbContext : DB.dataContext) =
+            let dbDocument = dbContext.Public.Document.Create()
+            dbDocument.Customvariables <- document.customVariables
+            dbDocument.Jobname <- document.jobName
+            dbDocument.Name <- document.name
+            dbDocument.Emailsubject <- document.emailSubject
+            dbDocument.Emailbody <- document.emailBody
+            dbContext.SubmitUpdates()
+
+            document.pages
+            |> List.iteri (fun i page ->
+                let dbPage = dbContext.Public.Page.Create()
+                dbPage.Documentid <- document.id
+                dbPage.Pageindex <- i + 1
+                dbContext.SubmitUpdates()
+                match page with
+                | FilePage filePage ->
+                    let dbFilePage = dbContext.Public.Filepage.Create()
+                    dbFilePage.Name <- filePage.name
+                    dbFilePage.Path <- filePage.path
+                    dbFilePage.Pageid <- dbPage.Id
+                | HtmlPage htmlPage ->
+                    let dbHtmlPage = dbContext.Public.Htmlpage.Create()
+                    dbHtmlPage.Name <- htmlPage.name
+                    dbHtmlPage.Pageid <- dbPage.Id
+                dbContext.SubmitUpdates()
+                )
+
+            Ok ()
+        ()
 
     //[<Remote>]
     //let saveNewDocument (document : Document) =

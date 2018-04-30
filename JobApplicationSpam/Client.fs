@@ -49,10 +49,11 @@ module List =
 
 [<JavaScript>]
 module Client =
-    open System.Net.Configuration
+    open System.Net.Http
 
     type SentApplicationsTemplate = Templating.Template<"templates/SentApplications.html">
     type UserValuesTemplate = Templating.Template<"templates/UserValues.html">
+    type DocumentsAndFilesTemplate = Templating.Template<"templates/DocumentsAndFiles.html">
     type ApplyNowTemplate = Templating.Template<"templates/ApplyNow.html">
     type EmailTemplate = Templating.Template<"templates/Email.html">
     type LoginTemplate = Templating.Template<"templates/Login.html">
@@ -139,17 +140,37 @@ module Client =
             { documents =
                 [
                   { pages =
-                        [FilePage {name = "AAA"; size = 0}];
+                        [FilePage {name = "AAA"; size = 0; path = ""}];
                     name="Doc 1"
+                    customVariables = ""
+                    jobName = "Fachinformatiker"
+                    id = 1
+                    emailSubject = ""
+                    emailBody = ""
                   }
-                  { pages = [ FilePage {name = "XX"; size = 0};  FilePage {name = "YY"; size = 0};  FilePage {name = "ZZ"; size = 0}];
+                  { pages = [ FilePage {name = "XX"; size = 0; path = ""};  FilePage {name = "YY"; size = 0; path = ""};  FilePage {name = "ZZ"; size = 0; path = ""}];
                     name="Doc 2"
+                    customVariables = ""
+                    jobName = "Fachinformatiker"
+                    id = 2
+                    emailSubject = ""
+                    emailBody = ""
                   }
-                  { pages = [ FilePage {name = "D"; size = 0};  FilePage {name = "E"; size = 0};  FilePage {name = "F"; size = 0}];
+                  { pages = [ FilePage {name = "D"; size = 0; path = ""};  FilePage {name = "E"; size = 0; path = ""};  FilePage {name = "F"; size = 0; path = ""}];
                     name="Doc 3"
+                    customVariables = ""
+                    jobName = "Fachinformatiker"
+                    id = 3
+                    emailSubject = ""
+                    emailBody = ""
                   }
-                  { pages = [ FilePage {name = "u"; size = 0};  FilePage {name = "v"; size = 0}];
+                  { pages = [ FilePage {name = "u"; size = 0; path = ""};  FilePage {name = "v"; size = 0; path = ""}];
                     name="Doc 4"
+                    customVariables = ""
+                    jobName = "Fachinformatiker"
+                    id = 4
+                    emailSubject = ""
+                    emailBody = ""
                   }
                 ]
               activeFileName = ""
@@ -170,9 +191,10 @@ module Client =
                 (fun s v ->
                     if v <> []
                     then
+                        JS.Alert(v.Head.name)
                         { s with
-                            activeDocumentName = v.Head.name
                             documents = v
+                            activeDocumentName = v.Head.name
                         }
                     else s
                 )
@@ -265,15 +287,41 @@ module Client =
             ref
 
     let Main () =
+        let ajax (method: string) (url: string) (formData : FormData) : Async<string> =
+            Async.FromContinuations
+                (fun (ok, ko, _) ->
+                    JQuery.Ajax(
+                        JQuery.AjaxSettings(
+                            Url = url,
+                            Type = As<JQuery.RequestType> method,
+                            ContentType = Union<bool, string>.Union1Of2(false),
+                            ProcessData = false,
+                            Data = formData,
+                            Cache = false,
+                            Success = (fun result s q -> JS.Alert("success!"); ok (result :?> string)),
+                            Error = (fun result s q -> JS.Alert("failure: " + (result.ResponseText))))
+                    )
+                    |> ignore
+                )
+
         let loadDocuments () =
             async {
                 JS.Alert("loading documents!")
                 let! rDocuments = Server.getDocuments()
                 match rDocuments with
                 | Ok documents ->
-                    JS.Alert("OK documents " + documents.Head.name) 
-                    stateRefs.documents.Value <- documents
-                    JS.Alert("pages: " + stateRefs.documents.Value.Head.pages.Head.Name())
+                    state.Value <- { state.Value with documents = documents; activeDocumentName = documents.Head.name }
+                    let mutable shouldWait = 0;
+                    let selectDocumentEl = JS.Document.GetElementById("selectDocument")
+                    while shouldWait <> -1 && shouldWait < 100 do
+                        do! Async.Sleep 20
+                        [ for i = 0 to (documents.Length - 1) do
+                            yield (selectDocumentEl?options?length <= i || (selectDocumentEl?options?item(i)?text |> string) = documents.[i].name)
+                        ]
+                        |> List.forall id
+                        |> fun b -> shouldWait <- if b then -1 else shouldWait + 1
+
+                    stateRefs.activeDocumentName.Value <- documents.Head.name
                 | Failure msg -> JS.Alert msg
                 | Error -> JS.Alert("Sorry, an error occurred")
             }
@@ -289,32 +337,45 @@ module Client =
                 | Failure _ -> JS.Alert("Failed to log you in")
                 | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
-        let applyNowTemplate =
-            ApplyNowTemplate.ApplyNow()
+        let documentsAndFilesTemplate =
+            DocumentsAndFilesTemplate.DocumentsAndFiles()
                 .DocumentPages(
-                        stateRefs.pages.View.DocSeqCached(fun (page : Page) ->
-                                match page with
-                                | FilePage filePage ->
-                                    ApplyNowTemplate.DocumentFile()
-                                        .Name(filePage.name)
-                                        .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
-                                        //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
-                                        .Click(fun () ->
-                                            stateRefs.activeFileName.Value <- filePage.name
-                                        )
-                                        .Delete(fun _ ->
-                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name))
-                                        .MoveUp(fun _ ->
-                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name))
-                                        .MoveDown(fun _ ->
-                                            stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name))
-                                        .Doc()
-                                | HtmlPage htmlPage ->
-                                    Doc.Empty
-                            )
+                    stateRefs.pages.View.DocSeqCached(fun (page : Page) ->
+                        match page with
+                        | FilePage filePage ->
+                            DocumentsAndFilesTemplate.DocumentFile()
+                                .Name(filePage.name)
+                                .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
+                                //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
+                                .Click(fun () ->
+                                    stateRefs.activeFileName.Value <- filePage.name
+                                )
+                                .Delete(fun _ ->
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name))
+                                .MoveUp(fun _ ->
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name))
+                                .MoveDown(fun _ ->
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name))
+                                .Doc()
+                        | HtmlPage htmlPage ->
+                            Doc.Empty
+                        )
+                )
+                .btnclick(fun el ev ->
+                    ev.PreventDefault()
+                    ev.StopPropagation()
+                    async {
+                        let formData : FormData = JS.Eval("""new FormData(document.getElementById("formId"));""") :?> FormData
+                        formData.Append("userId", "3")
+                        let! _ = ajax "POST" "/Upload" formData
+                        ()
+                    } |> Async.Start
                 )
                 .SelectDocument(createSelect "selectDocument" (stateRefs.documents.View.Map(fun ds -> ds |> (List.map (fun (x : Document) -> x.name)))) stateRefs.activeDocumentName
                 )
+                .Doc()
+        let applyNowTemplate =
+            ApplyNowTemplate.ApplyNow()
                 //.Change(fun () ->
                 //    files.Value <- ([{ size = 88; name = "Hallo" }; {size=0; name="Welt"}])
                 //)
@@ -413,5 +474,5 @@ module Client =
                     } |> Async.Start
                 )
                 .Doc()
-        Doc.Concat [loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
+        Doc.Concat [documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
 

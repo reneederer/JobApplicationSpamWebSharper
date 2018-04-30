@@ -4,10 +4,14 @@ open WebSharper
 open WebSharper.Sitelets
 open WebSharper.UI.Next
 open WebSharper.UI.Next.Server
+open Types
+open System.Web
+open WebSharper.Sitelets.Http
 
 
 type EndPoint =
     | [<EndPoint "/">] Home
+    | [<EndPoint "POST /Upload">] Upload of fileUpload : FileUpload
 
 module Templating =
     open WebSharper.UI.Next.Html
@@ -26,8 +30,10 @@ module Site =
     open WebSharper.UI.Next.Html
     open System.IO
     open log4net
+    open Types
+    open System.Reflection
+    open WebSharper.Sitelets
 
-    log4net.Config.XmlConfigurator.Configure(new FileInfo("log4net.config")) |> ignore
 
     let HomePage ctx =
         Templating.Main ctx EndPoint.Home "Bewerbungsspam" [
@@ -36,7 +42,12 @@ module Site =
 
     [<Website>]
     let Main =
-        Application.MultiPage (fun ctx endpoint ->
+        Application.MultiPage (fun (ctx : Context<EndPoint>) endpoint ->
             match endpoint with
-            | EndPoint.Home -> HomePage ctx
+            | EndPoint.Home ->
+                HomePage ctx
+            | EndPoint.Upload fileUpload ->
+                for file in ctx.Request.Files do
+                    file.SaveAs ("c:/users/rene/" + file.FileName + (string fileUpload.userId))
+                Content.RedirectPermanentToUrl "/"
         )

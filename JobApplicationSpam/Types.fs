@@ -7,9 +7,13 @@ open WebSharper.UI.Next.Server
 
 [<JavaScript>]
 module Types =
+    open WebSharper.Sitelets.Http
+    open System.Web
+
     type FilePage =
         { name : string
           size : int
+          path : string
         }
     type HtmlPage =
         { name : string }
@@ -24,6 +28,11 @@ module Types =
     type Document =
         { name : string
           pages : list<Page>
+          id : int
+          customVariables : string
+          jobName : string
+          emailSubject : string
+          emailBody : string
         }
     type Gender = 
         | Male
@@ -80,6 +89,9 @@ module Types =
           phone = ""
           mobilePhone = ""
         }
+    type FileUpload =
+            { [<FormData>] userId : int
+            }
 
     type Email =
         { subject : string
