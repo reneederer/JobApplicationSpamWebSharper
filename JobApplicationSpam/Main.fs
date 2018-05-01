@@ -137,30 +137,33 @@ module Site =
 
                 let getSaveToUserDir userId =
                     Path.Combine(Settings.DataDir, "user", string userId)
-
-                for file in ctx.Request.Files do
-                    try
-                        log.Debug("file.Filename: " + file.FileName)
+                
+                try
+                    let file = ctx.Request.Files |> Seq.item 0
+                    match Path.getExtensionNoDot(file.FileName) with
+                    | "txt" ->
+                        Content.Json (Failure "Unrecognized file type")
+                    | _ ->
                         let tmpFilePath = convertAndSaveTemporarily file
-                        log.Debug("tmpFilePath: " + tmpFilePath)
                         let saveFilePath = getFilePath_testIfIdenticalFileExists tmpFilePath [] (Path.Combine(Settings.DataDir, "user", string fileUpload.userId))
-                        log.Debug("saveFilePath: " + saveFilePath)
                         let saveFileName = findFreeFileName tmpFilePath fileUpload.documentId
-                        log.Debug("saveFileName: " + saveFileName)
                         //use transactionScope = new TransactionScope()
-                        match Server.addFilePage saveFileName (Path.Combine("user", string fileUpload.userId, saveFilePath)) fileUpload.documentId |> Async.RunSynchronously with
+                        let fullSaveFilePath = Path.Combine("user", string fileUpload.userId, saveFilePath)
+                        match Server.addFilePage saveFileName fullSaveFilePath fileUpload.documentId |> Async.RunSynchronously with
                         | Ok _ ->
                             let saveToUserDir =  getSaveToUserDir fileUpload.userId
                             if not <| Directory.Exists saveToUserDir
                             then Directory.CreateDirectory saveToUserDir |> ignore
                             File.Move(tmpFilePath, Path.Combine(saveToUserDir, saveFilePath))
+                            Content.Json (Ok (fullSaveFilePath, saveFileName, 0))
                             //transactionScope.Complete()
                         | _ ->
-                            ()
+                            Content.Json (Failure "Adding file page failed.")
                             //transactionScope.Dispose()
-                     with
-                     | e -> log.Error ("", e)
-                Content.RedirectPermanentToUrl "/"
+                 with
+                 | e ->
+                    log.Error ("", e)
+                    Content.Json Error
         )
 
 

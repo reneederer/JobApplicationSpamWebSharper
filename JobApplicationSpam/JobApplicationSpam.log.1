@@ -1,12 +1,9 @@
-2018-05-01 19:16:10,230 DEBUG Site+Main@44-3.Invoke file.Filename: bewerbung_neu.odt
-2018-05-01 19:16:10,436 DEBUG FileConverter.replaceInOdt (odtPath=C:/inetpub/JobApplicationSpam/tmp\9bdc8815819f4476b71ea14efd6ef16b\bewerbung_neu.odt, extractedOdtDirectory=C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\extracted, replacedOdtDirectory=C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\replaced)
-2018-05-01 19:16:10,613 DEBUG FileConverter.replaceInOdt (odtPath=C:/inetpub/JobApplicationSpam/tmp\9bdc8815819f4476b71ea14efd6ef16b\bewerbung_neu.odt, extractedOdtDirectory=C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\extracted, replacedOdtDirectory=C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\replaced) = C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\replaced\bewerbung_neu.odt
-2018-05-01 19:16:10,622 DEBUG Site+Main@44-3.Invoke tmpFilePath: C:/inetpub/JobApplicationSpam/tmp\dad75f297940443492063e9aa899afe1\replaced\bewerbung_neu.odt
-2018-05-01 19:16:10,651 DEBUG Site+Main@44-3.Invoke saveFilePath: bewerbung_neu (12).odt
-2018-05-01 19:16:10,701 DEBUG Site+findFreeFileName@50.Invoke filePageNames: ["dtei 1"; "bewerbung_neu.odt"; "bewerbung_neu (1).odt"; "bewerbung_neu (2).odt";
- "bewerbung_neu (3).odt"; "bewerbung_neu (4).odt"; "bewerbung_neu (5).odt";
- "bewerbung_neu (6).odt"; "bewerbung_neu (7).odt"; "bewerbung_neu (8).odt";
- "bewerbung_neu (9).odt"; "bewerbung_neu (3) (1).odt";
- "bewerbung_neu (1) (1).odt"; "bewerbung_neu (1) (2).odt";
- "bewerbung_neu (10).odt"; "bewerbung_neu (11).odt"; "bewerbung_neu (12).odt"]
-2018-05-01 19:16:10,715 DEBUG Site+Main@44-3.Invoke saveFileName: bewerbung_neu (13).odt
+2018-05-02 01:10:52,813 DEBUG Site+findFreeFileName@50.Invoke filePageNames: []
+2018-05-02 01:11:00,761 DEBUG FileConverter.mergePdfs (pdfPaths = ["C:/inetpub/JobApplicationSpam/user\2\-tmp- (2).pdf"], outputPath = C:/inetpub/JobApplicationSpam/tmp\953e79a465144eaeb46e14b8de40e538.pdf)
+2018-05-02 01:12:32,817 ERROR Server+withTransaction@65-2.Invoke System.InvalidOperationException: The file is not a valid PDF document.
+   at PdfSharp.Pdf.IO.PdfReader.Open(Stream stream, String password, PdfDocumentOpenMode openmode, PdfPasswordProvider passwordProvider)
+   at PdfSharp.Pdf.IO.PdfReader.Open(String path, String password, PdfDocumentOpenMode openmode, PdfPasswordProvider provider)
+   at JobApplicationSpam.FileConverter.mergePdfs(FSharpList`1 pdfPaths, String outputPath) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\FileConverter.fs:line 135
+   at JobApplicationSpam.Server.applyNow'@600.Invoke(Object dbContext) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\Server.fs:line 727
+   at JobApplicationSpam.Server.withTransaction@66-1.Invoke(Unit unitVar) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\Server.fs:line 66
+   at Microsoft.FSharp.Control.AsyncBuilderImpl.callA@522.Invoke(AsyncParams`1 args)

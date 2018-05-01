@@ -123,6 +123,7 @@ module Client =
         }
     type StateRefs =
         { documents : IRef<list<Document>>
+          jobName : IRef<string>
           user : UserRefs
           employer : EmployerRefs
           email : EmailRefs
@@ -209,6 +210,16 @@ module Client =
                       if List.length s.documents <= documentIndex
                       then s
                       else { s with documents = List.replace documentIndex {s.documents.[documentIndex] with pages = v} s.documents })
+          jobName =
+              state.Lens
+                  (fun s ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      s.documents.[documentIndex].jobName)
+                  (fun s v ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      { s with documents = List.replace documentIndex { s.documents.[documentIndex] with jobName = v } s.documents })
+                      
+
           user =
             { gender = Var.Create Gender.Male
               degree = state.Lens (fun s -> s.user.Values().degree) (fun s v -> { s with user = s.user.Values({ s.user.Values() with degree = v })})
@@ -258,6 +269,10 @@ module Client =
           activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
 
         }
+
+    let currentDocument() =
+        let documentIndex = state.Value.documents |> List.findIndex (fun x -> x.name = state.Value.activeDocumentName)
+        state.Value.documents.[documentIndex]
     
     let createRadioButton (header : string) (items : list<string * 'a>) (ref : IRef<'a>) =
         div
@@ -298,7 +313,18 @@ module Client =
                             ProcessData = false,
                             Data = formData,
                             Cache = false,
-                            Success = (fun result s q -> JS.Alert("success!"); ok (result :?> string)),
+                            Success = (fun result _ q ->
+                                let (r : Result<string * string * int>) = Json.Deserialize(q.ResponseText)
+                                match r with
+                                | Ok (filePath, fileName, size) ->
+                                    JS.Alert("success!"); ok (result :?> string)
+                                    stateRefs.pages.Value <- stateRefs.pages.Value @ [FilePage {path = filePath; name = fileName; size = size }]
+                                    JS.Document.GetElementById("file")?value <- null
+                                | Failure s ->
+                                    JS.Alert("failure!" + s); ok (result :?> string)
+                                | Error ->
+                                    JS.Alert("error!"); ok (result :?> string)
+                                ),
                             Error = (fun result s q -> JS.Alert("failure: " + (result.ResponseText))))
                     )
                     |> ignore
@@ -333,7 +359,6 @@ module Client =
                 | Ok user ->
                     state.Value <- { state.Value with user = user }
                     do! loadDocuments ()
-                    JS.Alert("logged in!")
                 | Failure _ -> JS.Alert("Failed to log you in")
                 | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
@@ -365,7 +390,6 @@ module Client =
                     ev.StopPropagation()
                     async {
                         let formData : FormData = JS.Eval("""new FormData(document.getElementById("formId"));""") :?> FormData
-                        JS.Alert((string <| state.Value.user.Id()) + string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
                         formData.Append("userId", string <| state.Value.user.Id())
                         formData.Append("documentId", string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
                         let! _ = ajax "POST" "/Upload" formData
@@ -383,6 +407,14 @@ module Client =
                 //.Change2(fun () ->
                 //    files.Value <- ([{ size = 88; name = "abc" }; {size = 0; name="def"}; {size = 0; name="ghi"}])
                 //)
+                .UserEmail(
+                    match state.Value.user with
+                    | Guest _ ->
+                        Templates.InputField().Id("applyNowUserEmail").LabelText("Your email").Var(stateRefs.user.email).Doc()
+                    | LoggedInUser _ ->
+                        Doc.Empty)
+                .JobName(Templates.InputField().Id("jobName").LabelText("ApplyAs").Var(stateRefs.jobName).Doc())
+                .Company(Templates.InputField().Id("employerCompany").LabelText("Company").Var(stateRefs.employer.company).Doc())
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female); ("Unknown", Gender.Unknown) ] stateRefs.employer.gender)
                 .Degree(Templates.InputField().Id("employerDegree").LabelText("Degree").Var(stateRefs.employer.degree).Doc())
                 .FirstName(Templates.InputField().Id("firstName").LabelText("First name").Var(stateRefs.employer.firstName).Doc())
@@ -393,6 +425,15 @@ module Client =
                 .Email(Templates.InputField().Id("employerEmail").LabelText("Email").Var(stateRefs.employer.email).Doc())
                 .Phone(Templates.InputField().Id("employerPhone").LabelText("Phone").Var(stateRefs.employer.phone).Doc())
                 .MobilePhone(Templates.InputField().Id("employerMobilePhone").LabelText("MobilePhone").Var(stateRefs.user.mobilePhone).Doc())
+                .ApplyNowClick(fun () ->
+                    async {
+                        let! rApplyNow = Server.applyNow (state.Value.user.Values()) state.Value.employer (currentDocument())
+                        match rApplyNow with
+                        | Ok _ -> JS.Alert("Application would have been sent")
+                        | Failure msg -> JS.Alert(msg)
+                        | Error -> JS.Alert("Sorry, your application could not be sent.")
+                    } |> Async.Start
+                )
                 .Doc()
         let userValuesTemplate =
             UserValuesTemplate.UserValues()
@@ -423,7 +464,6 @@ module Client =
                             Cookies.Set("sessionGuid", sessionGuid)
                             state.Value <- { state.Value with user = user }
                             do! loadDocuments ()
-                            JS.Alert("You have been logged in")
                         | Failure msg -> JS.Alert(msg)
                         | _ -> JS.Alert("Sorry an error occurred.")
                     } |> Async.Start
@@ -440,8 +480,6 @@ module Client =
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
                             state.Value <- { state.Value with user = user }
-                            do! loadDocuments ()
-                            JS.Alert("Registration was successful")
                         | Failure msg -> JS.Alert(msg)
                         | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start

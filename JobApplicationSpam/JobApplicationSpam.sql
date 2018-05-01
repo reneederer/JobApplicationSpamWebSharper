@@ -8,6 +8,7 @@ drop table if exists documentEditedOn cascade;
 drop table if exists htmlPage cascade;
 drop table if exists filePage cascade;
 drop table if exists page cascade;
+drop table if exists application cascade;
 drop table if exists document cascade;
 drop table if exists htmlPageTemplate cascade;
 drop table if exists jobRequirement cascade;
@@ -18,7 +19,7 @@ drop table if exists users cascade;
 
 
 create table users ( id serial primary key,
-                     email text unique null,
+                     email text not null,
 					 password text not null,
 					 salt text not null,
 					 confirmEmailGuid text null,
@@ -39,7 +40,6 @@ create table login ( id serial primary key,
 					 loggedInForSeconds int not null,
 					 foreign key(userId) references users(id));
 create table employer ( id serial primary key,
-                        userId int not null,
 						company text not null,
 						street text not null,
 						postcode text not null,
@@ -50,8 +50,7 @@ create table employer ( id serial primary key,
 						lastName text not null,
 						email text not null,
 						phone text not null,
-						mobilePhone text not null,
-						foreign key(userId) references users(id));
+						mobilePhone text not null);
 create table jobOffer ( id serial primary key,
                         url text not null,
 						jobName text not null);
@@ -71,7 +70,6 @@ create table document ( id serial primary key,
 						customVariables text not null,
 						emailSubject text not null,
 						emailBody text not null,
-						createdOn date not null,
 						deletedOn date null,
 						foreign key(userId) references users(id));
 
@@ -103,14 +101,22 @@ create table pageMap ( id serial primary key,
 					   value text not null,
 					   foreign key(documentId) references document(id),
 					   constraint pageMap_unique unique(documentId, pageIndex, key));
+create table application ( id serial primary key,
+                           documentId int not null,
+						   userId int not null,
+						   employerId int not null,
+						   foreign key(documentId) references document(id),
+						   foreign key(userId) references users(id),
+						   foreign key(employerId) references employer(id));
 create table sentStatusValue ( id int primary key,
                                status text not null);
 create table sentStatus ( id serial primary key,
-                          documentId int not null,
+                          applicationId int not null,
 						  statusChangedOn date not null,
 						  dueOn timestamp null,
 						  sentStatusValueId int not null,
 						  statusMessage text not null,
+						  foreign key(applicationId) references application(id),
 						  foreign key(sentStatusValueId) references sentStatusValue(id));
 create table link ( id serial primary key,
                     path text not null,
@@ -118,14 +124,14 @@ create table link ( id serial primary key,
 					name text not null);
 
 insert into users ( email, password, salt, confirmEmailGuid, sessionGuid, createdOn, gender, degree, name, street, postcode, city, phone, mobilePhone) values('rene.ederer.nbg@gmail.com', 'r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date, 'm', '', 'René Ederer', 'Raabstr. 24A', '90429', 'Nürnberg', 'kein Telefon', 'kein Handy');
-insert into document(userId, name, createdOn, jobName, customVariables, emailSubject, emailBody) values(1, 'welt', '1982-07-19 13:52:38', 'Fachinformatiker', '', 'subject1', 'body1');
-insert into document(userId, name, createdOn, jobName, customVariables, emailSubject, emailBody) values(1, 'hallo', '1982-07-19 13:52:38', 'Test', '', 'subject2', 'body2');
+insert into document(userId, name, jobName, customVariables, emailSubject, emailBody) values(1, 'welt', 'Fachinformatiker', '', 'subject1', 'body1');
+insert into document(userId, name, jobName, customVariables, emailSubject, emailBody) values(1, 'hallo', 'Test', '', 'subject2', 'body2');
 insert into page(documentId, pageIndex) values(1, 2);
 insert into page(documentId, pageIndex) values(1, 1);
-insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 1, 'datei 1');
-insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 1, 'datei 2');
+insert into filePage(path, pageId, name) values('user/1/bewerbung_neu.odt', 1, 'datei 1');
+insert into filePage(path, pageId, name) values('User/1/bewerbung_neu.odt', 2, 'datei 2');
 insert into page(documentId, pageIndex) values(2, 1);
-insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 3, 'dtei 1');
+insert into filePage(path, pageId, name) values('User/1/bewerbung_neu.odt', 3, 'dtei 1');
 
 /*
 insert into document(userId, name, jobName, customVariables) values(1, 'mein zweites htmlTemplate', 'Automechaniker', '');
