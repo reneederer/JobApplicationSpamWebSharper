@@ -2,6 +2,8 @@ namespace JobApplicationSpam
 
 open Types
 open System.IO
+open System.Text.RegularExpressions
+open System.IO.Compression
 
 
 module Path =
@@ -19,27 +21,78 @@ module FileConverter =
 
     let private log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().GetType())
 
-    let odtToPdf (odtPath : string) =
-        let outputPath = Path.ChangeExtension(odtPath, ".pdf")
-        File.Delete(outputPath)
-        use proc = new System.Diagnostics.Process()
-        proc.StartInfo.FileName <- Settings.Python
-        proc.StartInfo.UseShellExecute <- false
-        proc.StartInfo.Arguments <-
-            sprintf
-                """ "%s" --format pdf -P PaperFormat=A4 -eUseLossLessCompression=true "%s" """
-                Settings.Unoconv
-                odtPath
-        proc.StartInfo.CreateNoWindow <- true
-        proc.Start() |> ignore
-        proc.WaitForExit()
-        let outputPath = Path.ChangeExtension(odtPath, ".pdf")
-        if File.Exists outputPath
-        then
-            Some outputPath
-        else
-            log.Error (sprintf "(odtPath = %s) failed to convert" odtPath)
-            None
+    let applyRec path f : list<'a> =
+        let rec applyRec' currentDir =
+            let directories = Directory.EnumerateDirectories(Path.Combine(path, currentDir))
+            let xs =
+                [ for directory in directories do
+                    yield! applyRec' (Path.Combine(currentDir, Path.GetFileName(directory)))
+                ]
+
+            let files = Directory.EnumerateFiles(Path.Combine(path, currentDir))
+            xs
+            @
+            [ for file in files do
+                yield f currentDir (Path.GetFileName(file)) ]
+        applyRec' ""
+
+
+    let replaceInString (text1 : string) (map : list<string * string>) =
+        let rec replaceInString' (text : string) =
+            List.fold
+                (fun (state:string) (k: string, v: string) ->
+                    let replace (s : string) (k1 : string) (v1: string) = 
+                        let replacedV =
+                            if v1.Contains "$" && s.Contains k1
+                            then replaceInString' v1
+                            else v1
+
+                        if replacedV = ""
+                        then s.Replace(k1 + " ", "").Replace(k1, "")
+                        else
+                            let replaceValue = System.Security.SecurityElement.Escape(replacedV)
+                            s.Replace(k1, replaceValue)
+                    replace state k v
+                )
+                text
+                map
+        replaceInString' text1
+
+
+
+    let replaceInFile path map =
+        let content = File.ReadAllText(path)
+        let replacedText = replaceInString content map
+        File.WriteAllText(path, replacedText)
+
+    
+
+    let rec replaceInExtractedOdtDirectory path map =
+        applyRec
+            path
+            (fun currentDir currentFile ->
+                if Path.GetExtension(currentFile).ToLower() = (".xml")
+                then replaceInFile (Path.Combine(path, currentDir, currentFile)) map
+                else ()
+            ) |> ignore
+
+
+    
+    let replaceInOdt odtPath extractedOdtDirectory replacedOdtDirectory map =
+        log.Debug (sprintf "(odtPath=%s, extractedOdtDirectory=%s, replacedOdtDirectory=%s)" odtPath extractedOdtDirectory replacedOdtDirectory)
+        let odtFileName = Path.GetFileName(odtPath)
+        if not <| Directory.Exists(replacedOdtDirectory) then Directory.CreateDirectory(replacedOdtDirectory) |> ignore
+        let replacedOdtPath = Path.Combine(replacedOdtDirectory, odtFileName)
+        if Directory.Exists extractedOdtDirectory then Directory.Delete(extractedOdtDirectory, true)
+        if File.Exists(replacedOdtPath) then File.Delete(replacedOdtPath)
+        ZipFile.ExtractToDirectory(odtPath, extractedOdtDirectory)
+        replaceInExtractedOdtDirectory extractedOdtDirectory map
+        ZipFile.CreateFromDirectory(extractedOdtDirectory, replacedOdtPath)
+        Directory.Delete(extractedOdtDirectory, true)
+        log.Debug (sprintf "(odtPath=%s, extractedOdtDirectory=%s, replacedOdtDirectory=%s) = %s" odtPath extractedOdtDirectory replacedOdtDirectory replacedOdtPath)
+        replacedOdtPath
+    
+
     
     let private convertTo fileType filePath =
         let rec convertToOdt' tries =
@@ -60,8 +113,7 @@ module FileConverter =
             process1.Start() |> ignore
             process1.WaitForExit()
             if File.Exists outputPath
-            then
-                outputPath
+            then outputPath
             else
                 if tries > 0
                 then

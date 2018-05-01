@@ -365,8 +365,9 @@ module Client =
                     ev.StopPropagation()
                     async {
                         let formData : FormData = JS.Eval("""new FormData(document.getElementById("formId"));""") :?> FormData
-                        formData.Append("userId", "1")
-                        formData.Append("documentId", "2")
+                        JS.Alert((string <| state.Value.user.Id()) + string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
+                        formData.Append("userId", string <| state.Value.user.Id())
+                        formData.Append("documentId", string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
                         let! _ = ajax "POST" "/Upload" formData
                         ()
                     } |> Async.Start

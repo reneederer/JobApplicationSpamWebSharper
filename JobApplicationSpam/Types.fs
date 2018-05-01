@@ -1,9 +1,6 @@
 namespace JobApplicationSpam
 
 open WebSharper
-open WebSharper.Sitelets
-open WebSharper.UI.Next
-open WebSharper.UI.Next.Server
 
 [<JavaScript>]
 module Types =
@@ -12,6 +9,7 @@ module Types =
     open FSharp.Configuration
     open System
     open System.Configuration
+    open System.IO
 
     type Settings = AppSettings<"Web.config">
 
@@ -73,7 +71,8 @@ module Types =
         { email : string
         }
     type UserValues =
-        { gender : Gender
+        { id : int
+          gender : Gender
           degree : string
           name : string
           street : string
@@ -84,7 +83,8 @@ module Types =
           mobilePhone : string
         }
     let emptyUserValues =
-        { gender = Gender.Unknown
+        { id = 0
+          gender = Gender.Unknown
           degree = ""
           name = ""
           street = ""
@@ -141,8 +141,17 @@ module Types =
                 match this with
                 | LoggedInUser _ -> LoggedInUser userValues
                 | Guest _ -> Guest userValues
+            member this.Id() =
+                match this with
+                | LoggedInUser userValues -> userValues.id
+                | Guest userValues -> userValues.id
 
     type Result<'a> =
     | Ok of 'a
     | Failure of string
     | Error
+
+    type EmptyTextTagAction =
+    | Replace
+    | Ignore
+

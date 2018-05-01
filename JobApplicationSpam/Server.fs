@@ -53,7 +53,10 @@ module Server =
     [<Literal>]
     let connectionStringTest = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest"
 
-    let init() = ()
+    let toRootedPath path =
+        if System.IO.Path.IsPathRooted path
+        then path
+        else System.IO.Path.Combine(Settings.DataDir, path)
 
     let withTransaction (f : DB.dataContext -> Result<'a>) =
         async {
@@ -152,11 +155,11 @@ module Server =
             query {
                 for user in dbContext.Public.Users do
                 where (user.Email.IsSome && user.Email.Value = email)
-                select ( user.Id,
-                         user.Salt,
+                select ( user.Salt,
                          user.Password,
                          user.Confirmemailguid |> toOption,
-                         { gender = Gender.FromString user.Gender
+                         { id = user.Id
+                           gender = Gender.FromString user.Gender
                            degree = user.Degree
                            name = user.Name
                            street = user.Street
@@ -169,12 +172,12 @@ module Server =
                        )
             }
         match usersWithCredentials |> readDB |> Async.RunSynchronously |> Seq.toList with
-        | [userId, salt, dbPassword, confirmEmailGuid, userValues] ->
+        | [salt, dbPassword, confirmEmailGuid, userValues] ->
             if dbPassword = generateHashWithSalt password salt 1000 64
             then
-                GetContext().UserSession.LoginUser (userId |> string) |> Async.RunSynchronously
+                GetContext().UserSession.LoginUser (userValues.id |> string) |> Async.RunSynchronously
                 async {
-                    let! rSessionGuid = updateSessionGuid userId
+                    let! rSessionGuid = updateSessionGuid userValues.id
                     match confirmEmailGuid, rSessionGuid with
                     | (None, Ok sessionGuid) ->
                         return Ok (sessionGuid, LoggedInUser userValues)
@@ -194,7 +197,8 @@ module Server =
             query {
                 for user in dbContext.Public.Users do
                 where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
-                select { gender = Gender.FromString user.Gender
+                select { id = user.Id
+                         gender = Gender.FromString user.Gender
                          degree = user.Degree
                          name = user.Name
                          street = user.Street
@@ -243,7 +247,8 @@ module Server =
                 user.Street <- ""
                 Ok ( sessionGuid, 
                      Guest
-                       { gender = Gender.FromString user.Gender
+                       { id = user.Id
+                         gender = Gender.FromString user.Gender
                          degree = user.Degree
                          name = user.Name
                          street = user.Street
@@ -455,10 +460,8 @@ module Server =
         ()
     
     [<Remote>]
-    let addFilePage filePath1 fileName1 (documentId : int) =
-        log.Debug (sprintf "%s %s %i" filePath1 fileName1 documentId)
-        let addFilePage' filePath fileName (documentId : int) (dbContext : DB.dataContext) =
-            log.Debug("hallo3")
+    let addFilePage fileName filePath (documentId : int) =
+        let addFilePage' (dbContext : DB.dataContext) =
             let pageIndex =
                 (query {
                     for page in dbContext.Public.Page do
@@ -466,22 +469,19 @@ module Server =
                     sortByDescending (page.Pageindex)
                     select (Some page.Pageindex)
                 }).FirstOrDefault() |> Option.map ((+) 1) |> Option.defaultValue 1
-            log.Debug("hallo2")
 
             let dbPage = dbContext.Public.Page.Create()
             dbPage.Documentid <- documentId
             dbPage.Pageindex <- pageIndex
-            log.Debug("hallo1")
             dbContext.SubmitUpdates()
 
-            log.Debug("hallo")
             let filePage = dbContext.Public.Filepage.Create()
             filePage.Pageid <- dbPage.Id
             filePage.Name <- fileName
             filePage.Path <- filePath
             dbContext.SubmitUpdates()
             Ok ()
-        addFilePage' filePath1 fileName1 documentId |> withTransaction
+        addFilePage' |> withTransaction
 
     [<Remote>]
     let getFilePageNames documentId =
@@ -491,277 +491,86 @@ module Server =
                 join page in dbContext.Public.Page on (filePage.Pageid = page.Id)
                 where (page.Documentid = documentId)
                 select filePage.Name
-            } |> Seq.toList
+            } |> Seq.distinct |> Seq.toList
         getFilePageNames documentId |> readDB
+    
+    [<Remote>]
+    let getReplaceValuesMap (employer : Employer) (userValues : UserValues) (document : Document) =
+        async {
+            let predefinedVariables =
+                [ ("$firma", employer.company)
+                  ("$firmaStrasse", employer.street)
+                  ("$firmaPlz", employer.postcode)
+                  ("$firmaStadt",employer.city)
+                  ("$chefGeschlecht", employer.gender.ToString())
+                  ("$chefTitel", employer.degree)
+                  ("$chefVorname", employer.firstName)
+                  ("$chefNachname", employer.lastName)
+                  ("$chefEmail", employer.email)
+                  ("$chefTelefon", employer.phone)
+                  ("$chefMobil", employer.mobilePhone)
 
+                  ("$meinGeschlecht", userValues.gender.ToString())
+                  ("$meinTitel", userValues.degree)
+                  ("$meinName", "ÜtherÄÜ")
+                  ("$meinVorname", "ÜtherÄÜ")
+                  ("$meinName", "ÜtherÄÜ")
+                  ("$meineStrasse", userValues.street)
+                  ("$meinePlz", userValues.postcode)
+                  ("$meinePostleitzahl", userValues.postcode)
+                  ("$meineStadt", userValues.city)
+                  ("$meineEmail", userValues.email)
+                  ("$meineTelefonnr", userValues.phone)
+                  ("$meineMobilnr", userValues.mobilePhone)
+                  ("$tagHeute", sprintf "%02i" DateTime.Today.Day)
+                  ("$monatHeute", sprintf "%02i" DateTime.Today.Month)
+                  ("$jahrHeute", sprintf "%04i" DateTime.Today.Year)
+                  ("$datumHeute", sprintf "%02i.%02i.%04i" DateTime.Today.Day DateTime.Today.Month DateTime.Today.Year)
+                  ("$beruf", document.jobName)
+                ]
+            let customVariables = []
+                //match parse customVariablesStr with
+                //| Bad xs -> failwith (String.Concat xs)
+                //| Ok (parsedVariables, _) ->
+                //    parsedVariables
+                //    |> List.map (fun (k : AssignedVariable, v : Variables.Expression) -> 
+                //              (k
+                //            , (tryGetValue v predefinedVariables |> Option.defaultValue ""))
+                //        )
 
-    //[<Remote>]
-    //let saveNewDocument (document : Document) =
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.insertDocument document
-    //            |> withTransaction
-    //            }
+            return (predefinedVariables @ customVariables) |> List.sortByDescending (fun (k, v) -> k.Length)
+        }
 
-    //[<Remote>]
-    //let deleteDocument (DocumentId documentId) =
-    //    (fun dbContext ->
-    //        async {
-    //            return Database.deleteDocument documentId dbContext
-    //            let filePaths = Database.getDeletableFilePaths documentId dbContext
-    //            for filePath in filePaths do
-    //                if Path.IsPathRooted filePath
-    //                then File.Delete filePath
-    //                else File.Delete <| toRootedPath filePath
-    //            Database.deleteDeletableDocumentFilePages documentId dbContext
-    //        }
-    //    ) |> withTransaction
-
-    //[<Remote>]
-    //let getDocumentOffset (htmlJobApplicationOffset : int) =
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.getDocumentOffset htmlJobApplicationOffset
-    //            |> readDB
-    //            }
-
-    //[<Remote>]
-    //let replaceVariables
-    //        (filePath : string)
-    //        (userValues : UserValues)
-    //        (employer : Employer)
-    //        (document : Document) =
-    //    let oUserEmail = tryGetUserEmail () |> Async.RunSynchronously
-    //    match oUserEmail with
-    //    | Some userEmail ->
-    //        async {
-    //            try
-    //                let tmpDirectory = Path.Combine(Settings.DataDirectory, "tmp", Guid.NewGuid().ToString("N"))
-    //                let! map = toCV employer userValues userEmail document.jobName document.customVariables
-    //                Directory.CreateDirectory(tmpDirectory) |> ignore
-    //                if filePath.ToLower().EndsWith(".odt")
-    //                then
-    //                    return
-    //                        Odt.replaceInOdt
-    //                            (toRootedPath filePath)
-    //                            (Path.Combine(tmpDirectory, "extracted"))
-    //                            (Path.Combine(tmpDirectory, "replaced"))
-    //                            map
-    //                elif unoconvImageTypes |> List.contains (Path.GetExtension(filePath).ToLower().Substring(1))
-    //                then
-    //                    return filePath
-    //                else
-    //                    let newFilePath = Path.Combine(tmpDirectory, (Path.GetFileName(filePath)))
-    //                    File.Copy(toRootedPath filePath, newFilePath, true)
-    //                    Odt.replaceInFile newFilePath map Types.Ignore
-    //                    return newFilePath
-    //            with
-    //            | e ->
-    //                log.Error ("", e)
-    //                return failwith "An error occurred"
-    //        }
-    //    | None ->
-    //        log.Error("User email was None")
-    //        failwith "User email was None"
+    [<Remote>]
+    let replaceVariables
+            (filePath : string)
+            (userValues : UserValues)
+            (employer : Employer)
+            (document : Document) =
+            async {
+                try
+                    let tmpDirectory = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N"))
+                    let! replaceValuesMap = getReplaceValuesMap employer userValues document
+                    Directory.CreateDirectory(tmpDirectory) |> ignore
+                    if filePath.ToLower().EndsWith(".odt")
+                    then
+                        return
+                            FileConverter.replaceInOdt
+                                (toRootedPath filePath)
+                                (Path.Combine(tmpDirectory, "extracted"))
+                                (Path.Combine(tmpDirectory, "replaced"))
+                                replaceValuesMap
+                    else
+                        let newFilePath = Path.Combine(tmpDirectory, (Path.GetFileName(filePath)))
+                        File.Copy(toRootedPath filePath, newFilePath, true)
+                        FileConverter.replaceInFile newFilePath replaceValuesMap
+                        return newFilePath
+                with
+                | e ->
+                    log.Error ("", e)
+                    return failwith "An error occurred"
+            }
          
-    //let emailSentApplicationToUser' (sentApplicationOffset : int) (customVariablesString : string) userId =
-    //    try
-    //        let oUserEmail = Database.getEmailByUserId userId |> readDB
-    //        let oSentApplication =
-    //            withCurrentUser ()
-    //            |> Database.getSentApplicationOffset sentApplicationOffset
-    //            |> readDB
-    //        match oUserEmail, oSentApplication with
-    //        | _, None -> fail "The requested application could not be not found"
-    //        | None, _ -> fail "User email was None"
-    //        | Some userEmail, Some sentApplication ->
-    //            let myList =
-    //                toCV
-    //                    sentApplication.employer
-    //                    sentApplication.user.values
-    //                    sentApplication.user.email
-    //                    sentApplication.jobName
-    //                    customVariablesString
-    //                |> Async.RunSynchronously
-    //            let tmpDirectory = Path.Combine(Settings.DataDirectory, "tmp", Guid.NewGuid().ToString("N"))
-    //            let odtPaths =
-    //                [ for (path, _) in sentApplication.filePages do
-    //                        yield
-    //                            if unoconvImageTypes |> List.contains(Path.GetExtension(path).Substring(1).ToLower())
-    //                            then toRootedPath path
-    //                            elif path.ToLower().EndsWith(".odt")
-    //                            then
-    //                                let directoryGuid = Guid.NewGuid().ToString("N")
-    //                                Odt.replaceInOdt
-    //                                    (toRootedPath path)
-    //                                    (Path.Combine(tmpDirectory, directoryGuid, "extractedOdt"))
-    //                                    (Path.Combine(tmpDirectory, directoryGuid, "replacedOdt"))
-    //                                    myList
-    //                            else
-    //                                let copiedPath = Path.Combine(tmpDirectory, Guid.NewGuid().ToString("N"), Path.GetFileName(path))
-    //                                Directory.CreateDirectory(Path.GetDirectoryName copiedPath) |> ignore
-    //                                File.Copy(toRootedPath path, copiedPath)
-    //                                Odt.replaceInFile
-    //                                    copiedPath
-    //                                    myList
-    //                                    Types.Ignore
-    //                                copiedPath
-    //                ]
-
-    //            let pdfPaths =
-    //                [ for odtPath in odtPaths do
-    //                    yield Odt.odtToPdf odtPath
-    //                ] |> List.choose id
-    //            let mergedPdfPath =
-    //                Path.Combine(
-    //                    tmpDirectory,
-    //                    (sprintf
-    //                        "Bewerbung_%s_%s.pdf"
-    //                        sentApplication.user.values.firstName
-    //                        sentApplication.user.values.lastName
-    //                    ).Replace("_.", ".").Replace("_.", "."))
-    //            if pdfPaths <> [] then Odt.mergePdfs pdfPaths mergedPdfPath
-    //            sendEmail
-    //                Settings.EmailUsername
-    //                "www.bewerbungsspam.de"
-    //                userEmail
-    //                (Odt.replaceInString sentApplication.email.subject myList Types.Ignore)
-    //                (Odt.replaceInString (sentApplication.email.body.Replace("\\r\\n", "\n").Replace("\\n", "\n")) myList Types.Ignore)
-    //                (if pdfPaths = []
-    //                 then []
-    //                 else [mergedPdfPath,
-    //                       (sprintf
-    //                            "Bewerbung_%s_%s.pdf"
-    //                            sentApplication.user.values.firstName
-    //                            sentApplication.user.values.lastName
-    //                       ).Replace("_.", ".").Replace("_.", ".")]
-    //                 )
-    //            ok ()
-    //    with
-    //    | e ->
-    //        log.Error ("", e)
-    //        fail "Couldn't email the application to the user"
-
-    //[<Remote>]
-    //let emailSentApplicationToUser (sentApplicationOffset : int) (customVariablesString : string) =
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> fun userId () -> emailSentApplicationToUser' sentApplicationOffset customVariablesString userId
-    //            |> fun f -> f()
-    //    }
-
-
-
-    //[<Remote>]
-    //let sendNotYetSentApplication' sentApplicationId dbContext =
-    //    let oSentApp = Database.getSentApplication sentApplicationId dbContext
-    //    match oSentApp with
-    //    | None ->
-    //        log.Error (sprintf "sentApplication was None. Id: %i" sentApplicationId)
-    //    | Some sentApp ->
-    //        let myList =
-    //                toCV
-    //                    sentApp.employer
-    //                    sentApp.user.values
-    //                    sentApp.user.email
-    //                    sentApp.jobName
-    //                    sentApp.customVariables
-    //                |> Async.RunSynchronously
-    //        let tmpDirectory = Path.Combine(Settings.DataDirectory, "tmp", Guid.NewGuid().ToString("N"))
-    //        let odtPaths =
-    //            [ for (filePath, pageIndex) in sentApp.filePages do
-    //                yield
-    //                    if unoconvImageTypes |> List.contains(Path.GetExtension(filePath).ToLower().Substring(1))
-    //                    then
-    //                        toRootedPath filePath
-    //                    elif filePath.ToLower().EndsWith(".odt")
-    //                    then
-    //                        let directoryGuid = Guid.NewGuid().ToString("N")
-    //                        Odt.replaceInOdt
-    //                            (toRootedPath filePath)
-    //                            (Path.Combine(tmpDirectory, directoryGuid, "extractedOdt"))
-    //                            (Path.Combine(tmpDirectory, directoryGuid, "replacedOdt"))
-    //                            myList
-    //                    else
-    //                        let copiedPath = Path.Combine(tmpDirectory, Guid.NewGuid().ToString("N"), Path.GetFileName(filePath))
-    //                        Directory.CreateDirectory(Path.GetDirectoryName copiedPath) |> ignore
-    //                        File.Copy(toRootedPath filePath, copiedPath)
-    //                        Odt.replaceInFile
-    //                            copiedPath
-    //                            myList
-    //                            Types.Ignore
-    //                        copiedPath
-    //            ]
-                   
-
-    //        let pdfPaths =
-    //            [ for odtPath in odtPaths do
-    //                yield
-    //                    Odt.odtToPdf odtPath
-    //            ] |> List.choose id
-    //        let mergedPdfPath = Path.Combine(tmpDirectory, Guid.NewGuid().ToString() + ".pdf")
-    //        if pdfPaths <> []
-    //        then Odt.mergePdfs pdfPaths mergedPdfPath
-
-
-    //        //TODO
-    //        dbContext.Public.Sentstatus.Create
-    //            ( Sentapplicationid = sentApplicationId
-    //            , Statuschangedon = DateTime.Today
-    //            , Dueon = None
-    //            , Sentstatusvalueid = 2
-    //            , Statusmessage = "")
-    //        |> ignore
-
-    //        sendEmail
-    //            sentApp.user.email
-    //            (sentApp.user.values.firstName + " " + sentApp.user.values.lastName)
-    //            sentApp.employer.email
-    //            (Odt.replaceInString sentApp.email.subject myList Types.Ignore)
-    //            (Odt.replaceInString (sentApp.email.body.Replace("\\r\\n", "\n").Replace("\\n", "\n")) myList Types.Ignore)
-
-    //            (if pdfPaths = []
-    //             then []
-    //             else [mergedPdfPath, (sprintf "Bewerbung_%s_%s.pdf" sentApp.user.values.firstName sentApp.user.values.lastName)]
-    //             )
-    //        sendEmail
-    //            sentApp.user.email
-    //            (sentApp.user.values.firstName + " " + sentApp.user.values.lastName)
-    //            sentApp.user.email
-    //            ("Deine Bewerbung wurde versandt - " + Odt.replaceInString sentApp.email.subject myList Types.Ignore)
-    //            ((sprintf
-    //                "Deine Bewerbung wurde am %s an %s versandt.\n\n"
-    //                (DateTime.Now.ToShortDateString())
-    //                sentApp.employer.email)
-    //                    + Odt.replaceInString (sentApp.email.body.Replace("\\r\\n", "\n").Replace("\\n", "\n")) myList Types.Ignore)
-
-    //            (if pdfPaths = []
-    //             then []
-    //             else [mergedPdfPath, (sprintf "Bewerbung_%s_%s.pdf" sentApp.user.values.firstName sentApp.user.values.lastName)]
-    //             )
-
-    //        let oConfirmEmailGuid = Database.tryGetConfirmEmailGuid sentApp.user.email dbContext
-    //        match oConfirmEmailGuid with
-    //        | Some confirmEmailGuid ->
-    //            sendEmail
-    //                Settings.EmailUsername
-    //                "Bewerbungsspam"
-    //                sentApp.user.email
-    //                (t German PleaseConfirmYourEmailAddressEmailSubject)
-    //                (String.Format((t German PleaseConfirmYourEmailAddressEmailBody), sentApp.user.email, confirmEmailGuid))
-    //                []
-    //        | None -> ()
-    //[<Remote>]
-    //let sendNotYetSentApplication sentApplicationId =
-    //    sendNotYetSentApplication' sentApplicationId
-    //    |> withTransaction
-
     //[<Remote>]
     //let applyNow
     //        (employer : Employer)
@@ -801,58 +610,6 @@ module Server =
     //    }
 
     //[<Remote>]
-    //let addFilePage (DocumentId documentId) path pageIndex name =
-    //    async {
-    //        return
-    //            Database.insertFilePage documentId path pageIndex name |> withTransaction
-    //    }
-
-    
-    //[<Remote>]
-    //let getHtmlPageTemplates () =
-    //    async {
-    //        return Database.getHtmlPageTemplates |> readDB
-    //    }
-    
-    //[<Remote>]
-    //let getHtmlPageTemplate (templateId : int) =
-    //    async {
-    //        return Database.getHtmlPageTemplate templateId |> readDB
-    //    }
-    
-    //[<Remote>]
-    //let getHtmlPages documentId =
-    //    async {
-    //        Database.getHtmlPages documentId |> readDB
-    //    }
-
-    //[<Remote>]
-    //let getPageMapOffset (pageIndex : int) (documentIndex : int)  =
-    //    let userId = withCurrentUser  ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.getPageMapOffset pageIndex documentIndex
-    //            |> readDB
-    //    }
-     
-    //[<Remote>]
-    //let getLastEditedDocumentOffset () =
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.getLastEditedDocumentOffset
-    //            |> readDB
-    //    }
-
-    //[<Remote>]
-    //let setLastEditedDocumentId (userId : UserId) (documentId : DocumentId) =
-    //    async {
-    //        return Database.setLastEditedDocumentId documentId userId |> withTransaction
-    //    }
-
-    //[<Remote>]
     //let addNewDocument name =
     //    let userId = withCurrentUser  ()
     //    async {
@@ -863,31 +620,10 @@ module Server =
     //        }
 
     //[<Remote>]
-    //let addHtmlPage (documentId : int) (oTemplateId : option<int>) (pageIndex : int) (name : string) =
-    //    async {
-    //        Database.insertHtmlPage documentId oTemplateId pageIndex name |> withTransaction
-    //    }
-
-    //[<Remote>]
-    //let getDocumentIdOffset documentIndex =
-    //    let userId = withCurrentUser ()
-    //    async {
-    //        return
-    //            userId
-    //            |> Database.tryGetDocumentIdOffset documentIndex
-    //            |> readDB
-    //    }
-    
-    //[<Remote>]
     //let readWebsite (identifier : string) : Async<Result<Employer, string>> =
     //    async {
     //        return Website.read identifier
     //    }
-    
-    //[<Remote>]
-    //let isLoggedIn() =
-    //    let loggedIn = getCurrentUserId() |> Async.RunSynchronously |> Option.isSome
-    //    async { return loggedIn }
     
     //[<Remote>]
     //let createLink filePath name =
