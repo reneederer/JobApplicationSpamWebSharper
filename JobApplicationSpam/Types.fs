@@ -9,6 +9,11 @@ open WebSharper.UI.Next.Server
 module Types =
     open WebSharper.Sitelets.Http
     open System.Web
+    open FSharp.Configuration
+    open System
+    open System.Configuration
+
+    type Settings = AppSettings<"Web.config">
 
     type FilePage =
         { name : string
@@ -91,6 +96,7 @@ module Types =
         }
     type FileUpload =
             { [<FormData>] userId : int
+              [<FormData>] documentId : int
             }
 
     type Email =

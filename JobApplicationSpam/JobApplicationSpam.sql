@@ -78,8 +78,8 @@ create table document ( id serial primary key,
 create table page ( id serial primary key,
                     documentId int not null,
 					pageIndex int not null,
-					foreign key(documentId) references document(id),
-					constraint page_unique unique(documentId, pageIndex));
+					foreign key(documentId) references document(id));
+					--//constraint page_unique unique(documentId, pageIndex));
 create table filePage( id serial primary key,
                        pageId int not null,
 					   path text not null,
@@ -120,11 +120,11 @@ create table link ( id serial primary key,
 insert into users ( email, password, salt, confirmEmailGuid, sessionGuid, createdOn, gender, degree, name, street, postcode, city, phone, mobilePhone) values('rene.ederer.nbg@gmail.com', 'r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date, 'm', '', 'René Ederer', 'Raabstr. 24A', '90429', 'Nürnberg', 'kein Telefon', 'kein Handy');
 insert into document(userId, name, createdOn, jobName, customVariables, emailSubject, emailBody) values(1, 'welt', '1982-07-19 13:52:38', 'Fachinformatiker', '', 'subject1', 'body1');
 insert into document(userId, name, createdOn, jobName, customVariables, emailSubject, emailBody) values(1, 'hallo', '1982-07-19 13:52:38', 'Test', '', 'subject2', 'body2');
-insert into page(id, documentId, pageIndex) values(1, 1, 2);
-insert into page(id, documentId, pageIndex) values(2, 1, 1);
+insert into page(documentId, pageIndex) values(1, 2);
+insert into page(documentId, pageIndex) values(1, 1);
 insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 1, 'datei 1');
 insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 1, 'datei 2');
-insert into page(id, documentId, pageIndex) values(3, 2, 1);
+insert into page(documentId, pageIndex) values(2, 1);
 insert into filePage(path, pageId, name) values('Users/1/bewerbung_neu.odt', 3, 'dtei 1');
 
 /*

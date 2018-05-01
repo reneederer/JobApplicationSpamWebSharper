@@ -346,7 +346,6 @@ module Client =
                             DocumentsAndFilesTemplate.DocumentFile()
                                 .Name(filePage.name)
                                 .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
-                                //.MoveDownVisible(Attr.DynamicClass "vis" state.View (fun (s : State) -> if s.documents.Length = 0 || (s.documents.[0].files |> List.length = 0) then false else (s.documents.[0].files |> List.last |> (fun x -> x.name)) = file.name))
                                 .Click(fun () ->
                                     stateRefs.activeFileName.Value <- filePage.name
                                 )
@@ -361,12 +360,13 @@ module Client =
                             Doc.Empty
                         )
                 )
-                .btnclick(fun el ev ->
+                .UploadFile(fun el ev ->
                     ev.PreventDefault()
                     ev.StopPropagation()
                     async {
                         let formData : FormData = JS.Eval("""new FormData(document.getElementById("formId"));""") :?> FormData
-                        formData.Append("userId", "3")
+                        formData.Append("userId", "1")
+                        formData.Append("documentId", "2")
                         let! _ = ajax "POST" "/Upload" formData
                         ()
                     } |> Async.Start

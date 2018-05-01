@@ -34,7 +34,7 @@ open Types
 module Server =
     open System.Linq
 
-    let log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
+    let private log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
 
     [<Literal>]
     let private connectionString = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspam; Enlist=true"
@@ -42,7 +42,7 @@ module Server =
     [<Literal>]
     let private resolutionPath = "bin"
 
-    type DB =
+    type private DB =
         SqlDataProvider<
             DatabaseVendor = FSharp.Data.Sql.Common.DatabaseProviderTypes.POSTGRESQL,
             ConnectionString = connectionString,
@@ -53,21 +53,22 @@ module Server =
     [<Literal>]
     let connectionStringTest = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest"
 
+    let init() = ()
+
     let withTransaction (f : DB.dataContext -> Result<'a>) =
-        log.Debug "withTransaction"
         async {
             let dbContext = DB.GetDataContext()
-            use dbScope = new TransactionScope()
+            //use dbScope = new TransactionScope()
             try
                 let r = f dbContext
                 match r with
                 | Error ->
                     dbContext.ClearUpdates() |> ignore
-                    dbScope.Dispose()
+                    //dbScope.Dispose()
                     return Error
                 | _ ->
                     dbContext.SubmitUpdates()
-                    dbScope.Complete()
+                    //dbScope.Complete()
                     return r
             with
             | e -> 
@@ -174,13 +175,12 @@ module Server =
                 GetContext().UserSession.LoginUser (userId |> string) |> Async.RunSynchronously
                 async {
                     let! rSessionGuid = updateSessionGuid userId
-                    return Ok ("a", Guest emptyUserValues)
-                    //match confirmEmailGuid, rSessionGuid with
-                    //| (None, Ok sessionGuid) ->
-                    //    return Ok (sessionGuid, LoggedInUser userValues)
-                    //| (Some _, Ok sessionGuid) ->
-                    //    return Ok (sessionGuid, Guest userValues)
-                    //| _ -> return Error
+                    match confirmEmailGuid, rSessionGuid with
+                    | (None, Ok sessionGuid) ->
+                        return Ok (sessionGuid, LoggedInUser userValues)
+                    | (Some _, Ok sessionGuid) ->
+                        return Ok (sessionGuid, Guest userValues)
+                    | _ -> return Error
                 }
             else async { return Failure "Email or password is wrong" }
         | [] ->
@@ -451,9 +451,49 @@ module Server =
                     dbHtmlPage.Pageid <- dbPage.Id
                 dbContext.SubmitUpdates()
                 )
-
             Ok ()
         ()
+    
+    [<Remote>]
+    let addFilePage filePath1 fileName1 (documentId : int) =
+        log.Debug (sprintf "%s %s %i" filePath1 fileName1 documentId)
+        let addFilePage' filePath fileName (documentId : int) (dbContext : DB.dataContext) =
+            log.Debug("hallo3")
+            let pageIndex =
+                (query {
+                    for page in dbContext.Public.Page do
+                    where (page.Documentid = documentId)
+                    sortByDescending (page.Pageindex)
+                    select (Some page.Pageindex)
+                }).FirstOrDefault() |> Option.map ((+) 1) |> Option.defaultValue 1
+            log.Debug("hallo2")
+
+            let dbPage = dbContext.Public.Page.Create()
+            dbPage.Documentid <- documentId
+            dbPage.Pageindex <- pageIndex
+            log.Debug("hallo1")
+            dbContext.SubmitUpdates()
+
+            log.Debug("hallo")
+            let filePage = dbContext.Public.Filepage.Create()
+            filePage.Pageid <- dbPage.Id
+            filePage.Name <- fileName
+            filePage.Path <- filePath
+            dbContext.SubmitUpdates()
+            Ok ()
+        addFilePage' filePath1 fileName1 documentId |> withTransaction
+
+    [<Remote>]
+    let getFilePageNames documentId =
+        let getFilePageNames documentId (dbContext : DB.dataContext) =
+            query {
+                for filePage in dbContext.Public.Filepage do
+                join page in dbContext.Public.Page on (filePage.Pageid = page.Id)
+                where (page.Documentid = documentId)
+                select filePage.Name
+            } |> Seq.toList
+        getFilePageNames documentId |> readDB
+
 
     //[<Remote>]
     //let saveNewDocument (document : Document) =
