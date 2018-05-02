@@ -53,6 +53,24 @@ module Server =
     [<Literal>]
     let connectionStringTest = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest"
 
+    let sendEmail fromAddress fromName toAddress subject body (attachmentPathsAndNames : list<string * string>) =
+        use smtpClient = new SmtpClient(Settings.EmailServer, Settings.EmailPort)
+        smtpClient.EnableSsl <- true
+        smtpClient.Credentials <- new System.Net.NetworkCredential(Settings.EmailUsername, Settings.EmailPassword)
+        let fromAddress = new MailAddress(fromAddress, fromName, System.Text.Encoding.UTF8)
+        let toAddress = new MailAddress(toAddress)
+        let message = new MailMessage(fromAddress, toAddress, SubjectEncoding = System.Text.Encoding.UTF8, Subject = subject, Body = body, BodyEncoding = System.Text.Encoding.UTF8)
+        let attachments =
+            attachmentPathsAndNames
+            |> List.map (fun (filePath, fileName) ->
+                let attachment = new Attachment(filePath)
+                attachment.Name <- fileName
+                message.Attachments.Add(attachment)
+                attachment)
+        smtpClient.Send(message)
+        for attachment in attachments do
+            attachment.Dispose()
+
     let toRootedPath path =
         if System.IO.Path.IsPathRooted path
         then path
@@ -241,18 +259,18 @@ module Server =
                 let salt =  generateSalt 64
                 user.Sessionguid <- Some sessionGuid
                 user.Email <- email
-                user.City <- ""
+                user.City <- "Nürnberg"
                 user.Confirmemailguid <- Some confirmEmailGuid
                 user.Createdon <- DateTime.Now
-                user.Degree <- ""
-                user.Gender <- "u"
-                user.Mobilephone <- ""
-                user.Name <- ""
+                user.Degree <- "Dr."
+                user.Gender <- "f"
+                user.Mobilephone <- "0151 2327494"
+                user.Name <- "René Ederer"
                 user.Password <- generateHashWithSalt password salt 1000 64
-                user.Phone <- ""
-                user.Postcode <- ""
+                user.Phone <- "0911 238184811"
+                user.Postcode <- "90429"
                 user.Salt <- salt
-                user.Street <- ""
+                user.Street <- "Raabstr. 24A"
                 Ok ( sessionGuid, 
                      Guest
                        { id = user.Id
@@ -725,7 +743,7 @@ module Server =
                 ]
             let mergedPdfFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N") + ".pdf")
             if pdfFilePaths <> [] then FileConverter.mergePdfs pdfFilePaths mergedPdfFilePath
-            //send emails
+            sendEmail userValues.email userValues.name userValues.email document.emailSubject document.emailBody [mergedPdfFilePath, "Bewerbung"]
             Ok ()
         applyNow' |> withTransaction
          

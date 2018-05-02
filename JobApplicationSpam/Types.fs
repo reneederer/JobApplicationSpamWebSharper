@@ -99,10 +99,6 @@ module Types =
               [<FormData>] documentId : int
             }
 
-    type Email =
-        { subject : string
-          body : string
-        }
     type Employer =
         { company : string
           street : string

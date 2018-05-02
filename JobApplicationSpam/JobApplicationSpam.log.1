@@ -1,9 +1,0 @@
-2018-05-02 01:10:52,813 DEBUG Site+findFreeFileName@50.Invoke filePageNames: []
-2018-05-02 01:11:00,761 DEBUG FileConverter.mergePdfs (pdfPaths = ["C:/inetpub/JobApplicationSpam/user\2\-tmp- (2).pdf"], outputPath = C:/inetpub/JobApplicationSpam/tmp\953e79a465144eaeb46e14b8de40e538.pdf)
-2018-05-02 01:12:32,817 ERROR Server+withTransaction@65-2.Invoke System.InvalidOperationException: The file is not a valid PDF document.
-   at PdfSharp.Pdf.IO.PdfReader.Open(Stream stream, String password, PdfDocumentOpenMode openmode, PdfPasswordProvider passwordProvider)
-   at PdfSharp.Pdf.IO.PdfReader.Open(String path, String password, PdfDocumentOpenMode openmode, PdfPasswordProvider provider)
-   at JobApplicationSpam.FileConverter.mergePdfs(FSharpList`1 pdfPaths, String outputPath) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\FileConverter.fs:line 135
-   at JobApplicationSpam.Server.applyNow'@600.Invoke(Object dbContext) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\Server.fs:line 727
-   at JobApplicationSpam.Server.withTransaction@66-1.Invoke(Unit unitVar) in C:\Users\rene\Documents\Visual Studio 2017\Projects\JobApplicationSpam\JobApplicationSpam\Server.fs:line 66
-   at Microsoft.FSharp.Control.AsyncBuilderImpl.callA@522.Invoke(AsyncParams`1 args)

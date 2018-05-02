@@ -8,6 +8,18 @@ open WebSharper.UI.Next.Html
 open WebSharper.JQuery
 open Types
 
+type State =
+    { documents : list<Document>
+      activeFileName : string
+      activeDocumentName : string
+      employer : Employer
+      user : User
+      login : Login
+      register : Register
+      changePassword : ChangePassword
+      forgotPassword : ForgotPassword
+      changeEmail : ChangeEmail
+    }
 [<JavaScript>]
 module List =
     let rec removeFirst (f : 'a -> bool) xs =
@@ -47,6 +59,25 @@ module List =
         | _, _::rest -> mapAtOrDefault (i - 1) f d rest
         | _ -> d
 
+    let rec mapInner (p : 'a -> bool) (f : 'a -> 'a) (xs : list<'a>) : list<'a> =
+        match xs with
+        | [] -> []
+        | (x :: rest) ->
+            (if p x
+            then f x
+            else x)
+            :: (mapInner p f rest)
+    let mapInnerDocument (s : State) (f : Document -> Document) (xs : list<Document>) : State =
+        let rec mapInnerDocument' (s : State) (f : Document -> Document) (xs : list<Document>) : list<Document> =
+            match xs with
+            | [] -> []
+            | (x :: rest) ->
+                (if x.name = s.activeDocumentName
+                then f x
+                else x)
+                :: (mapInnerDocument' s f rest)
+        { s with documents = mapInnerDocument' s f xs }
+
 [<JavaScript>]
 module Client =
     open System.Net.Http
@@ -63,19 +94,6 @@ module Client =
     type ChangeEmailTemplate = Templating.Template<"templates/ChangeEmail.html">
     type Templates = Templating.Template<"templates/Templates.html">
 
-    type State =
-        { documents : list<Document>
-          activeFileName : string
-          activeDocumentName : string
-          employer : Employer
-          user : User
-          email : Email
-          login : Login
-          register : Register
-          changePassword : ChangePassword
-          forgotPassword : ForgotPassword
-          changeEmail : ChangeEmail
-        }
     type UserRefs =
         { gender : IRef<Gender>
           degree : IRef<string>
@@ -178,7 +196,6 @@ module Client =
               activeDocumentName = "Doc 1"
               employer = emptyEmployer
               user = Guest emptyUserValues
-              email = { subject = ""; body = "" }
               login = { email = "rene.ederer.nbg@gmail.com"; password = "1234" }
               register = { email = ""; password = "" }
               changePassword = { password = "" }
@@ -221,7 +238,7 @@ module Client =
                       
 
           user =
-            { gender = Var.Create Gender.Male
+            { gender = state.Lens (fun s -> s.user.Values().gender) (fun s v -> { s with user = s.user.Values({ s.user.Values() with gender = v })})
               degree = state.Lens (fun s -> s.user.Values().degree) (fun s v -> { s with user = s.user.Values({ s.user.Values() with degree = v })})
               name = state.Lens (fun s -> s.user.Values().name) (fun s v -> { s with user = s.user.Values({ s.user.Values() with name = v })})
               street = state.Lens (fun s -> s.user.Values().street) (fun s v -> { s with user = s.user.Values({ s.user.Values() with street = v })})
@@ -233,7 +250,7 @@ module Client =
             }
           employer =
             { company = state.Lens (fun s -> s.employer.company) (fun s v -> { s with employer = { s.employer with company = v } })
-              gender = Var.Create Gender.Male
+              gender = state.Lens (fun s -> s.employer.gender) (fun s v -> { s with employer = { s.employer with gender = v } })
               degree = state.Lens (fun s -> s.employer.degree) (fun s v -> { s with employer = { s.employer with degree = v }})
               firstName = state.Lens (fun s -> s.employer.firstName) (fun s v -> { s with employer = { s.employer with firstName = v }})
               lastName = state.Lens (fun s -> s.employer.lastName) (fun s v -> { s with employer = { s.employer with lastName = v }})
@@ -245,8 +262,14 @@ module Client =
               mobilePhone = state.Lens (fun s -> s.employer.mobilePhone) (fun s v -> { s with employer = { s.employer with mobilePhone = v }})
             }
           email =
-            { subject = state.Lens (fun s -> s.email.subject) (fun s v -> { s with email = { s.email with subject = v }})
-              body = state.Lens (fun s -> s.email.body) (fun s v -> { s with email = { s.email with body = v }})
+            { subject =
+                state.Lens
+                    (fun s -> (s.documents |> List.find (fun (x : Document) -> x.name = s.activeDocumentName)).emailSubject)
+                    (fun s v -> List.mapInnerDocument s (fun (x : Document) -> { x with emailSubject = v }) s.documents)
+              body =
+                state.Lens
+                    (fun s -> (s.documents |> List.find (fun x -> x.name = s.activeDocumentName)).emailBody)
+                    (fun s v -> s.documents |> List.mapInnerDocument s (fun x -> { x with emailBody = v }))
             }
           login =
             { email = state.Lens (fun s -> s.login.email) (fun s v -> { s with login = { s.login with email = v }})
@@ -339,14 +362,13 @@ module Client =
                     state.Value <- { state.Value with documents = documents; activeDocumentName = documents.Head.name }
                     let mutable shouldWait = 0;
                     let selectDocumentEl = JS.Document.GetElementById("selectDocument")
-                    while shouldWait <> -1 && shouldWait < 100 do
+                    while shouldWait <> -1 && shouldWait < 1000 do
                         do! Async.Sleep 20
                         [ for i = 0 to (documents.Length - 1) do
                             yield (selectDocumentEl?options?length <= i || (selectDocumentEl?options?item(i)?text |> string) = documents.[i].name)
                         ]
                         |> List.forall id
                         |> fun b -> shouldWait <- if b then -1 else shouldWait + 1
-
                     stateRefs.activeDocumentName.Value <- documents.Head.name
                 | Failure msg -> JS.Alert msg
                 | Error -> JS.Alert("Sorry, an error occurred")
