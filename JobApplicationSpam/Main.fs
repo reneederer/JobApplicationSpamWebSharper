@@ -98,41 +98,7 @@ module Site =
                     | "gif"
                     | "png" -> FileConverter.convertToPdf tmpFilePath
                     | "pdf" -> tmpFilePath
-                    | "odt" ->
-                        Server.replaceVariables
-                            tmpFilePath
-                            { id = 0
-                              gender = Gender.Female
-                              degree = "Dr. "
-                              name = "René Ederer"
-                              street = "Raabstr. 24A"
-                              postcode = "90429"
-                              city = "Nürnberg"
-                              email = "rene.ederer.nbg@gmail.com"
-                              phone = "phonee"
-                              mobilePhone = "mobill"
-                            }
-                            { company = "BFI"
-                              gender = Gender.Male
-                              degree = ""
-                              firstName = "Michi"
-                              lastName = "Meier"
-                              street = "Hanbuchener Str. 99"
-                              postcode = "90491"
-                              city = "Nürnberg"
-                              email = "michi@bfi.com"
-                              phone = "0911 92381123"
-                              mobilePhone = "0151 98182391"
-                            }
-                            { id = 2
-                              pages = []
-                              jobName = "Fachinfo"
-                              name = "SomeDoc"
-                              customVariables = ""
-                              emailSubject = "Titel der Email"
-                              emailBody = "Sehr geehrter Herr $chefNachname"
-                            }
-                        |> Async.RunSynchronously
+                    | "odt" -> tmpFilePath
                     | s -> failwith "unsupported format" + s
 
                 let getSaveToUserDir userId =

@@ -71,10 +71,10 @@ module Types =
         { email : string
         }
     type UserValues =
-        { id : int
-          gender : Gender
+        { gender : Gender
           degree : string
-          name : string
+          firstName : string
+          lastName : string
           street : string
           postcode : string
           city : string
@@ -83,10 +83,10 @@ module Types =
           mobilePhone : string
         }
     let emptyUserValues =
-        { id = 0
-          gender = Gender.Unknown
+        { gender = Gender.Unknown
           degree = ""
-          name = ""
+          firstName = ""
+          lastName = ""
           street = ""
           postcode = ""
           city = ""
@@ -125,23 +125,41 @@ module Types =
           phone = ""
           mobilePhone = ""
         }
+    type UserId = int
     type User = 
-        | LoggedInUser of UserValues
-        | Guest of UserValues
+        | LoggedInUser of (UserId * UserValues)
+        | Guest of (UserId * UserValues)
         with
             member this.Values() =
                 match this with
-                | LoggedInUser userValues -> userValues
-                | Guest userValues -> userValues
+                | LoggedInUser (_, userValues) -> userValues
+                | Guest (_, userValues) -> userValues
             member this.Values(userValues) =
                 match this with
-                | LoggedInUser _ -> LoggedInUser userValues
-                | Guest _ -> Guest userValues
+                | LoggedInUser (userId, userValues) -> LoggedInUser (userId, userValues)
+                | Guest (userId, userValues) -> Guest (userId, userValues)
             member this.Id() =
                 match this with
-                | LoggedInUser userValues -> userValues.id
-                | Guest userValues -> userValues.id
+                | LoggedInUser (userId, userValues) -> userId
+                | Guest (userId, userValues) -> userId
 
+    type SentApplicationStatus =
+    | NotYetSent = 1
+    | WaitingForReply = 2
+    | ApplicationDenied = 3
+    | AppointmentForJobInterview = 4
+    | NotHired = 5
+    | Hired = 6
+
+    type SentApplication =
+        { employer : Employer
+          userValues : UserValues
+          emailSubject : string
+          emailBody : string
+          jobName : string
+          statusHistory : list<DateTime * int>
+          customVariables : string
+        }
     type Result<'a> =
     | Ok of 'a
     | Failure of string

@@ -121,7 +121,6 @@ module Server =
             async { return r }
         with
         | e -> 
-            log.Debug "hallo welt"
             log.Error e
             failwith "Couldn't read from database"
 
@@ -173,72 +172,90 @@ module Server =
     [<Remote>]
     let loginWithEmailAndPassword (email : string) (password : string) =
         try
-            let usersWithCredentials (dbContext : DB.dataContext) =
+            let userValuesIdsWithCredentials (dbContext : DB.dataContext) =
                 query {
-                    for user in dbContext.Public.Users do
-                    where (user.Email = email)
-                    select ( user.Salt,
-                             user.Password,
-                             user.Confirmemailguid |> toOption,
-                             { id = user.Id
-                               gender = Gender.FromString user.Gender
-                               degree = user.Degree
-                               name = user.Name
-                               street = user.Street
-                               postcode = user.Postcode
-                               city = user.City
-                               email = user.Email
-                               phone = user.Phone
-                               mobilePhone = user.Mobilephone
-                             }
-                           )
+                    for userValues in dbContext.Public.Uservalues do
+                    where (userValues.Email = email)
+                    groupBy (userValues.Userid) into g
+                    let maxRow =
+                        query {
+                            for row in g do
+                            maxBy (row.Id)
+                        }
+                    select maxRow
                 }
-            match usersWithCredentials |> readDB |> Async.RunSynchronously |> Seq.toList with
-            | [salt, dbPassword, confirmEmailGuid, userValues] ->
+            match userValuesIdsWithCredentials |> readDB |> Async.RunSynchronously |> Seq.toList with
+            | [userValuesId] ->
+                let (userId, dbPassword, salt, confirmEmailGuid, userValues) =
+                    fun (dbContext : DB.dataContext) ->
+                        query {
+                            for user in dbContext.Public.Users do
+                            join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                            where (userValues.Id = userValuesId)
+                            select
+                                ( user.Id, user.Password, user.Salt, user.Confirmemailguid,
+                                  { gender = Gender.FromString userValues.Gender
+                                    degree = userValues.Degree
+                                    firstName = userValues.Firstname
+                                    lastName = userValues.Lastname
+                                    street = userValues.Street
+                                    postcode = userValues.Postcode
+                                    city = userValues.City
+                                    email = userValues.Email
+                                    phone = userValues.Phone
+                                    mobilePhone = userValues.Mobilephone
+                                  }
+                                )
+                            head
+                        }
+                    |> readDB |> Async.RunSynchronously
+
                 if dbPassword = generateHashWithSalt password salt 1000 64
                 then
-                    GetContext().UserSession.LoginUser (userValues.id |> string) |> Async.RunSynchronously
-                    async {
-                        let! rSessionGuid = updateSessionGuid userValues.id
-                        match confirmEmailGuid, rSessionGuid with
-                        | (None, Ok sessionGuid) ->
-                            return Ok (sessionGuid, LoggedInUser userValues)
-                        | (Some _, Ok sessionGuid) ->
-                            return Ok (sessionGuid, Guest userValues)
-                        | _ -> return Error
-                    }
-                else async { return Failure "Email or password is wrong" }
-            | [] ->
-                async { return Failure "Email or password is wrong." }
+                    GetContext().UserSession.LoginUser (userId |> string) |> Async.RunSynchronously
+                    let rSessionGuid = updateSessionGuid userId |> Async.RunSynchronously
+                    match confirmEmailGuid, rSessionGuid with
+                    | (None, Ok sessionGuid) ->
+                        async { return Ok (sessionGuid, LoggedInUser (userId, userValues)) }
+                    | (Some _, Ok sessionGuid) ->
+                        async { return Ok (sessionGuid, Guest (userId, userValues)) }
+                    | _ -> async { return Error }
+                else async { return Failure "Email or password is wrong." }
+            | [] -> async { return Failure "Email or password is wrong." }
             | _ ->
-                async { return Error }
+                failwith "Unexpectedly found more than 1 result"
         with
         | e ->
-            log.Error("", e)
+            log.Error ("", e)
             async { return Error }
-        
+
     [<Remote>]
     let loginWithSessionGuid (sessionGuid : string) =
         let usersWithSessionGuid (dbContext : DB.dataContext) =
             query {
                 for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
                 where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
-                select { id = user.Id
-                         gender = Gender.FromString user.Gender
-                         degree = user.Degree
-                         name = user.Name
-                         street = user.Street
-                         postcode = user.Postcode
-                         city = user.City
-                         email = user.Email
-                         phone = user.Phone
-                         mobilePhone = user.Mobilephone
-                       }
+                select
+                    ( user.Confirmemailguid, 
+                      ( user.Id,
+                        { gender = Gender.FromString userValues.Gender
+                          degree = userValues.Degree
+                          firstName = userValues.Firstname
+                          lastName = userValues.Lastname
+                          street = userValues.Street
+                          postcode = userValues.Postcode
+                          city = userValues.City
+                          email = userValues.Email
+                          phone = userValues.Phone
+                          mobilePhone = userValues.Mobilephone
+                        }))
             }
         async {
             match usersWithSessionGuid |> readDB |> Async.RunSynchronously |> Seq.toList with
             | [] -> return Failure "Session guid unknown"
-            | [user] -> return Ok (LoggedInUser user)
+            | [None, user] -> return Ok (LoggedInUser user)
+            | [Some _, user] -> return Ok (Guest user)
             | _-> return Error
         }
     
@@ -248,42 +265,49 @@ module Server =
         let usersWithEmail (dbContext : DB.dataContext) =
             query {
                 for user in dbContext.Public.Users do
-                where (user.Email = email)
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                where (userValues.Email = email)
+                select 1
             }
         match usersWithEmail |> readDB |> Async.RunSynchronously |> Seq.toList with
         | [] ->
             let createNewUser (dbContext : DB.dataContext) =
                 let user = dbContext.Public.Users.Create()
                 let sessionGuid = Guid.NewGuid().ToString("N")
-                let confirmEmailGuid = Guid.NewGuid().ToString("N")
-                let salt =  generateSalt 64
                 user.Sessionguid <- Some sessionGuid
-                user.Email <- email
-                user.City <- "Nürnberg"
-                user.Confirmemailguid <- Some confirmEmailGuid
+                user.Confirmemailguid <- Some <| Guid.NewGuid().ToString("N")
                 user.Createdon <- DateTime.Now
-                user.Degree <- "Dr."
-                user.Gender <- "f"
-                user.Mobilephone <- "0151 2327494"
-                user.Name <- "René Ederer"
-                user.Password <- generateHashWithSalt password salt 1000 64
-                user.Phone <- "0911 238184811"
-                user.Postcode <- "90429"
-                user.Salt <- salt
-                user.Street <- "Raabstr. 24A"
+                user.Salt <- generateSalt 64
+                user.Password <- generateHashWithSalt password user.Salt 1000 64
+                dbContext.SubmitUpdates()
+
+                let userValues = dbContext.Public.Uservalues.Create()
+                userValues.Email <- email
+                userValues.City <- ""
+                userValues.Degree <- "."
+                userValues.Gender <- "u"
+                userValues.Mobilephone <- "2327494"
+                userValues.Firstname <- ""
+                userValues.Lastname <- ""
+                userValues.Phone <- "238184811"
+                userValues.Postcode <- ""
+                userValues.Street <- ". 24A"
+                userValues.Userid <- user.Id
+                dbContext.SubmitUpdates()
                 Ok ( sessionGuid, 
                      Guest
-                       { id = user.Id
-                         gender = Gender.FromString user.Gender
-                         degree = user.Degree
-                         name = user.Name
-                         street = user.Street
-                         postcode = user.Postcode
-                         city = user.City
-                         email = user.Email
-                         phone = user.Phone
-                         mobilePhone = user.Mobilephone
-                       }
+                       ( user.Id,
+                         { gender = Gender.FromString userValues.Gender
+                           degree = userValues.Degree
+                           firstName = userValues.Firstname
+                           lastName = userValues.Lastname
+                           street = userValues.Street
+                           postcode = userValues.Postcode
+                           city = userValues.City
+                           email = userValues.Email
+                           phone = userValues.Phone
+                           mobilePhone = userValues.Mobilephone
+                         })
                    )
             createNewUser |> withTransaction
         | _ -> async { return Failure "This email is already registered" }
@@ -293,49 +317,69 @@ module Server =
             (query {
                 for user in dbContext.Public.Users do
                 where (user.Id = userId)
-                select (Some user)
-            }).SingleOrDefault()
+                select (user)
+            }).Single()
+        getUser |> withCurrentUser |> readDB
+
+    let getCurrentUserAndUserValues () =
+        let getUser userId (dbContext : DB.dataContext) =
+            (query {
+                for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                where (user.Id = userId)
+                select (user, userValues)
+            }).Single()
         getUser |> withCurrentUser |> readDB
 
     [<Remote>]
     let changePassword password =
         async {
-            let! oUser = getCurrentUser ()
-            match  oUser with
-            | Some user ->
-                let setNewPasswordFor (user : DB.dataContext.``public.usersEntity``) password (dbContext : DB.dataContext) =
-                    let salt = generateSalt 64
-                    let hashedPassword = generateHashWithSalt password salt 1000 64
-                    user.Salt <- salt
-                    user.Password <- hashedPassword
-                    Ok ()
-                return! setNewPasswordFor user password |> withTransaction
-            | None ->
-                return Failure "You are not logged in."
+            let! user = getCurrentUser ()
+            let changePassword'  (dbContext : DB.dataContext) =
+                let salt = generateSalt 64
+                let hashedPassword = generateHashWithSalt password salt 1000 64
+                user.Salt <- salt
+                user.Password <- hashedPassword
+                Ok ()
+            return! changePassword' |> withTransaction
         }
+    
+    let getUserValues userId =
+        let getCurrentUserValues' (dbContext : DB.dataContext) =
+            (query {
+                for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                select userValues
+            }).Single()
+        getCurrentUserValues' |> readDB
 
     [<Remote>]
     let changeEmail email =
         async {
-            let! oUser = getCurrentUser ()
-            match  oUser with
-            | Some user ->
-                let setNewEmailFor (user : DB.dataContext.``public.usersEntity``) email (dbContext : DB.dataContext) =
-                    user.Email <- email
-                    user.Confirmemailguid <- Some (Guid.NewGuid().ToString("N"))
-                    user.Sessionguid <- None
-                    Ok ()
-                return! setNewEmailFor user email |> withTransaction
-            | None ->
-                return Failure "You are not logged in."
+            let changeEmail' userId (dbContext : DB.dataContext) =
+                let oldUserValues = getUserValues userId |> Async.RunSynchronously
+                let newUserValues = dbContext.Public.Uservalues.Create()
+                newUserValues.City <- oldUserValues.City
+                newUserValues.Degree <- oldUserValues.Degree
+                newUserValues.Email <- email
+                newUserValues.Firstname <- oldUserValues.Firstname
+                newUserValues.Lastname <- oldUserValues.Lastname
+                newUserValues.Mobilephone <- oldUserValues.Mobilephone
+                newUserValues.Phone <- oldUserValues.Phone
+                newUserValues.Postcode <- oldUserValues.Postcode
+                newUserValues.Street <- oldUserValues.Street
+                newUserValues.Userid <- userId
+                dbContext.SubmitUpdates()
+                Ok ()
+            return! changeEmail' |> withCurrentUser |> withTransaction
         }
 
     [<Remote>]
     let confirmEmail email confirmEmailGuid =
         async {
-            let! oUser = getCurrentUser ()
-            match oUser with
-            | Some user when user.Email = email ->
+            let! (user, userValues) = getCurrentUserAndUserValues ()
+            if userValues.Email = email
+            then
                 match user.Confirmemailguid with
                 | None -> return Failure "Your email has already been confirmed."
                 | Some guid when guid = confirmEmailGuid ->
@@ -345,22 +389,29 @@ module Server =
                     return! setConfirmEmailGuidToNone user |> withTransaction
                 | _ ->
                     return Failure "Your email could not be confirmed."
-            | None ->
-                return Failure "You are not logged in."
-            | _ ->
-                return Failure "Your email could not be confirmed."
+            else return Failure "Your email could not be confirmed."
         }
 
     [<Remote>]
     let getDocuments () =
         let getDocuments' (userId : int) (dbContext : DB.dataContext) =
+                let userValuesId =
+                    query {
+                        for userValues in dbContext.Public.Uservalues do
+                        where (userValues.Userid = userId)
+                        maxBy userValues.Id
+                    }
+                log.Debug (string userValuesId)
                 let documentIdsAndNames =
                     query {
-                        for document in dbContext.Public.Document do
-                        where (document.Userid = userId)
+                        for user in dbContext.Public.Users do
+                        join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                        join document in dbContext.Public.Document on (userValues.Id = document.Uservaluesid)
+                        where (user.Id = userId)
                         //sortBy document.Name
                         select (document.Id, document.Name)
                     }
+                log.Debug (sprintf "%A" documentIdsAndNames)
                 let documents =
                     [ for (documentId, documentName) in documentIdsAndNames do
                         let pageIds =
@@ -414,7 +465,7 @@ module Server =
                     dbDocument.Emailsubject <- "Application as farmer"
                     dbDocument.Jobname <- "Farmer"
                     dbDocument.Name <- "Farmer"
-                    dbDocument.Userid <- userId
+                    dbDocument.Uservaluesid <- userValuesId
                     dbContext.SubmitUpdates()
                     Ok [{ name = "Farmer"; pages = []; jobName = "Farmer"; emailSubject = "Application as farmer"; emailBody = "Hi there!"; id = dbDocument.Id; customVariables = "" }]
                 | _ -> Ok documents
@@ -552,9 +603,8 @@ module Server =
 
                   ("$meinGeschlecht", userValues.gender.ToString())
                   ("$meinTitel", userValues.degree)
-                  ("$meinName", "ÜtherÄÜ")
-                  ("$meinVorname", "ÜtherÄÜ")
-                  ("$meinName", "ÜtherÄÜ")
+                  ("$meinVorname", userValues.firstName)
+                  ("$meinName", userValues.lastName)
                   ("$meineStrasse", userValues.street)
                   ("$meinePlz", userValues.postcode)
                   ("$meinePostleitzahl", userValues.postcode)
@@ -612,32 +662,27 @@ module Server =
             }
     
     [<Remote>]
-    let applyNow (userValues : UserValues) (employer : Employer) (document : Document) =
+    let applyNow (user : User) (employer : Employer) (document : Document) =
         let applyNow' (dbContext : DB.dataContext) =
             //set userValues
             let oldUser =
                 (query {
-                    for user in dbContext.Public.Users do
-                    where (user.Id = userValues.id)
+                    for dbUser in dbContext.Public.Users do
+                    where (dbUser.Id = user.Id())
+                    select dbUser
                 }).Single()
-            let newUser = dbContext.Public.Users.Create()
-            newUser.City <- userValues.city
-            newUser.Confirmemailguid <- oldUser.Confirmemailguid
-            newUser.Createdon <- oldUser.Createdon
-            newUser.Degree <- userValues.degree
-            newUser.Deletedon <- None
-            newUser.Email <- userValues.email
-            newUser.Gender <- userValues.gender.ToString()
-            newUser.Mobilephone <- userValues.mobilePhone
-            newUser.Phone <- userValues.phone
-            newUser.Postcode <- userValues.postcode
-            newUser.Name <- userValues.name
-            newUser.Password <- oldUser.Password
-            newUser.Salt <- oldUser.Salt
-            newUser.Sessionguid <- None //TODO
-            newUser.Street <- userValues.street
-
-            oldUser.Deletedon <- Some DateTime.Now
+            let newUserValues = dbContext.Public.Uservalues.Create()
+            newUserValues.City <- user.Values().city
+            newUserValues.Degree <- user.Values().degree
+            newUserValues.Email <- user.Values().email
+            newUserValues.Gender <- user.Values().gender.ToString()
+            newUserValues.Mobilephone <- user.Values().mobilePhone
+            newUserValues.Phone <- user.Values().phone
+            newUserValues.Postcode <- user.Values().postcode
+            newUserValues.Firstname <- user.Values().firstName
+            newUserValues.Lastname <- user.Values().lastName
+            newUserValues.Street <- user.Values().street
+            newUserValues.Userid <- user.Id()
             dbContext.SubmitUpdates()
 
             //add employer
@@ -668,7 +713,7 @@ module Server =
             dbDocument.Emailsubject <- document.emailSubject
             dbDocument.Jobname <- document.jobName
             dbDocument.Name <- document.name
-            dbDocument.Userid <- newUser.Id
+            dbDocument.Uservaluesid <- newUserValues.Id
 
             oldDocument.Deletedon <- Some DateTime.Now
             dbContext.SubmitUpdates()
@@ -697,7 +742,7 @@ module Server =
             // insert application
             let dbApplication = dbContext.Public.Application.Create()
             dbApplication.Documentid <- dbDocument.Id
-            dbApplication.Userid <- newUser.Id
+            dbApplication.Userid <- user.Id()
             dbApplication.Employerid <- dbEmployer.Id
             dbContext.SubmitUpdates()
 
@@ -728,7 +773,7 @@ module Server =
                         yield
                             replaceVariables
                                 filePage.path
-                                userValues
+                                (user.Values())
                                 employer
                                 document
                             |> Async.RunSynchronously
@@ -743,9 +788,54 @@ module Server =
                 ]
             let mergedPdfFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N") + ".pdf")
             if pdfFilePaths <> [] then FileConverter.mergePdfs pdfFilePaths mergedPdfFilePath
-            sendEmail userValues.email userValues.name userValues.email document.emailSubject document.emailBody [mergedPdfFilePath, "Bewerbung"]
+            //sendEmail (user.Values().email) (user.Values().firstName + user.Values().lastName) (user.Values().email) document.emailSubject document.emailBody [mergedPdfFilePath, "Bewerbung"]
             Ok ()
         applyNow' |> withTransaction
+
+    [<Remote>]
+    let getSentApplications() =
+        let getSentApplications' userId (dbContext : DB.dataContext) =
+            query {
+                for document in dbContext.Public.Document do
+                join application in dbContext.Public.Application on (document.Id = application.Documentid)
+                join userValues in dbContext.Public.Uservalues on (document.Uservaluesid = userValues.Id)
+                join user in dbContext.Public.Users on (userValues.Userid = user.Id)
+                join employer in dbContext.Public.Employer on (application.Employerid = employer.Id)
+                where (application.Documentid = userId)
+                select
+                   ({ employer =
+                        { company = employer.Company
+                          street = employer.Street
+                          postcode = employer.Postcode
+                          city = employer.City
+                          gender = Gender.FromString(employer.Gender)
+                          degree = employer.Degree
+                          firstName = employer.Firstname
+                          lastName = employer.Lastname
+                          email = employer.Email
+                          phone = employer.Phone
+                          mobilePhone = employer.Mobilephone
+                        }
+                      userValues =
+                        { gender = Gender.FromString(userValues.Gender)
+                          degree = userValues.Degree
+                          firstName = userValues.Firstname
+                          lastName = userValues.Lastname
+                          street = userValues.Street
+                          postcode = userValues.Postcode
+                          city = userValues.City
+                          email = userValues.Email
+                          phone = userValues.Phone
+                          mobilePhone = userValues.Mobilephone
+                        }
+                      emailSubject = document.Emailsubject
+                      emailBody = document.Emailbody
+                      jobName = document.Jobname
+                      customVariables = document.Customvariables
+                      statusHistory = []
+                    } |> Ok)
+            }
+        getSentApplications' |> withCurrentUser |> readDB
          
     //[<Remote>]
     //let createLink filePath name =

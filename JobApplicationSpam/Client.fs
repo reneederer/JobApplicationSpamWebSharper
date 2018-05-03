@@ -8,8 +8,10 @@ open WebSharper.UI.Next.Html
 open WebSharper.JQuery
 open Types
 
+
 type State =
     { documents : list<Document>
+      sentApplications : list<SentApplication>
       activeFileName : string
       activeDocumentName : string
       employer : Employer
@@ -19,6 +21,7 @@ type State =
       changePassword : ChangePassword
       forgotPassword : ForgotPassword
       changeEmail : ChangeEmail
+      sentApplicationsModalValues : SentApplication
     }
 [<JavaScript>]
 module List =
@@ -81,23 +84,15 @@ module List =
 [<JavaScript>]
 module Client =
     open System.Net.Http
+    open System
 
-    type SentApplicationsTemplate = Templating.Template<"templates/SentApplications.html">
-    type UserValuesTemplate = Templating.Template<"templates/UserValues.html">
-    type DocumentsAndFilesTemplate = Templating.Template<"templates/DocumentsAndFiles.html">
-    type ApplyNowTemplate = Templating.Template<"templates/ApplyNow.html">
-    type EmailTemplate = Templating.Template<"templates/Email.html">
-    type LoginTemplate = Templating.Template<"templates/Login.html">
-    type RegisterTemplate = Templating.Template<"templates/Register.html">
-    type ChangePasswordTemplate = Templating.Template<"templates/ChangePassword.html">
-    type ForgotPasswordTemplate = Templating.Template<"templates/ForgotPassword.html">
-    type ChangeEmailTemplate = Templating.Template<"templates/ChangeEmail.html">
     type Templates = Templating.Template<"templates/Templates.html">
 
     type UserRefs =
         { gender : IRef<Gender>
           degree : IRef<string>
-          name : IRef<string>
+          firstName : IRef<string>
+          lastName : IRef<string>
           street : IRef<string>
           postcode : IRef<string>
           city : IRef<string>
@@ -148,6 +143,7 @@ module Client =
           activeFileName : IRef<string>
           activeDocumentName : IRef<string>
           pages : IRef<list<Page>>
+          sentApplications : IRef<list<SentApplication>>
           login : LoginRefs
           register : RegisterRefs
           changePassword : ChangePasswordRefs
@@ -192,15 +188,25 @@ module Client =
                     emailBody = ""
                   }
                 ]
+              sentApplications = []
               activeFileName = ""
               activeDocumentName = "Doc 1"
               employer = emptyEmployer
-              user = Guest emptyUserValues
+              user = Guest (1, emptyUserValues)
               login = { email = "rene.ederer.nbg@gmail.com"; password = "1234" }
               register = { email = ""; password = "" }
               changePassword = { password = "" }
               forgotPassword = { email = ""; }
               changeEmail = { email = ""; }
+              sentApplicationsModalValues =
+                  { employer = emptyEmployer
+                    userValues = emptyUserValues
+                    jobName = ""
+                    statusHistory = []
+                    emailSubject = ""
+                    emailBody = ""
+                    customVariables = ""
+                  }
             }
     let stateRefs =
         { documents =
@@ -215,6 +221,12 @@ module Client =
                             activeDocumentName = v.Head.name
                         }
                     else s
+                )
+          sentApplications =
+            state.Lens
+                (fun s -> s.sentApplications)
+                (fun s v ->
+                    { s with sentApplications = v }
                 )
           pages =
               state.Lens
@@ -240,7 +252,8 @@ module Client =
           user =
             { gender = state.Lens (fun s -> s.user.Values().gender) (fun s v -> { s with user = s.user.Values({ s.user.Values() with gender = v })})
               degree = state.Lens (fun s -> s.user.Values().degree) (fun s v -> { s with user = s.user.Values({ s.user.Values() with degree = v })})
-              name = state.Lens (fun s -> s.user.Values().name) (fun s v -> { s with user = s.user.Values({ s.user.Values() with name = v })})
+              firstName = state.Lens (fun s -> s.user.Values().firstName) (fun s v -> { s with user = s.user.Values({ s.user.Values() with firstName = v })})
+              lastName = state.Lens (fun s -> s.user.Values().lastName) (fun s v -> { s with user = s.user.Values({ s.user.Values() with lastName = v })})
               street = state.Lens (fun s -> s.user.Values().street) (fun s v -> { s with user = s.user.Values({ s.user.Values() with street = v })})
               postcode = state.Lens (fun s -> s.user.Values().postcode) (fun s v -> { s with user = s.user.Values({ s.user.Values() with postcode = v })})
               city = state.Lens (fun s -> s.user.Values().city) (fun s v -> { s with user = s.user.Values({ s.user.Values() with city = v })})
@@ -384,13 +397,114 @@ module Client =
                 | Failure _ -> JS.Alert("Failed to log you in")
                 | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
+        let sentApplicationsTemplate =
+            stateRefs.sentApplications.Value <-
+                   [ { employer =
+                         { company = "A company"
+                           street = ""
+                           postcode = ""
+                           city = ""
+                           gender = Gender.Male
+                           degree = ""
+                           firstName = "Tom"
+                           lastName = "Meier"
+                           email = ""
+                           phone = ""
+                           mobilePhone = ""
+                         }
+                       userValues =
+                         { gender = Gender.Female
+                           degree = ""
+                           firstName = "Berta"
+                           lastName = "Müller"
+                           street = ""
+                           postcode = ""
+                           city = ""
+                           email = ""
+                           phone = ""
+                           mobilePhone = ""
+                         }
+                       emailSubject = "hallo welt"
+                       emailBody = "123"
+                       jobName = "Fachinformatiker"
+                       customVariables = ""
+                       statusHistory = [DateTime.Now, 1]
+                     }
+                     { employer =
+                         { company = "BBBBBBBBBBBBB company"
+                           street = "B street"
+                           postcode = "90419"
+                           city = "Nürnberg"
+                           gender = Gender.Female
+                           degree = "Dr."
+                           firstName = "Christina"
+                           lastName = "Kreuzer"
+                           email = "employer@b.de"
+                           phone = "0911 29831118"
+                           mobilePhone = "0151 129823"
+                         }
+                       userValues =
+                         { gender = Gender.Male
+                           degree = ""
+                           firstName = ""
+                           lastName = ""
+                           street = ""
+                           postcode = ""
+                           city = ""
+                           email = ""
+                           phone = ""
+                           mobilePhone = ""
+                         }
+                       emailSubject = "hallo welt"
+                       emailBody = "123"
+                       jobName = "Fachinformatiker"
+                       customVariables = ""
+                       statusHistory = [DateTime.Parse("2003-04-30"), 2]
+                     }
+                   ]
+            Templates.SentApplicationsTemplate()
+                .SentApplications(stateRefs.sentApplications.View.DocSeqCached(fun (sentApplication : SentApplication) ->
+                    Templates.SentApplication()
+                        .Company(sentApplication.employer.company)
+                        .Click(fun () ->
+                            let modalEl = JS.Document.GetElementById("myModal")
+                            let closeEl = JS.Document.GetElementsByClassName("close")?item(0)
+                            state.Value <-
+                                { state.Value with
+                                    sentApplicationsModalValues =
+                                        { state.Value.sentApplicationsModalValues with
+                                            employer =
+                                                { state.Value.employer with
+                                                    company = sentApplication.employer.company
+                                                    firstName = sentApplication.employer.firstName
+                                                }
+                                        }
+                                }
+                            modalEl?style?display <- "block"
+                            closeEl?onclick <-
+                                (fun () ->
+                                    modalEl?style?display <- "none";
+                                )
+                        )
+                        .Doc())
+                )
+                .Company(state.View.Map(fun s -> s.sentApplicationsModalValues.employer.company))
+                .FirstName(state.View.Map(fun s -> s.sentApplicationsModalValues.employer.firstName))
+                .Doc()
+        JS.Window.Onclick <-
+            (fun evt ->
+                let modalEl = JS.Document.GetElementById("myModal")
+                if evt?target = modalEl && modalEl?style?display = "block"
+                then modalEl?style?display <- "block";
+            )
+
         let documentsAndFilesTemplate =
-            DocumentsAndFilesTemplate.DocumentsAndFiles()
+            Templates.DocumentsAndFilesTemplate()
                 .DocumentPages(
                     stateRefs.pages.View.DocSeqCached(fun (page : Page) ->
                         match page with
                         | FilePage filePage ->
-                            DocumentsAndFilesTemplate.DocumentFile()
+                            Templates.DocumentFile()
                                 .Name(filePage.name)
                                 .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
                                 .Click(fun () ->
@@ -422,7 +536,7 @@ module Client =
                 )
                 .Doc()
         let applyNowTemplate =
-            ApplyNowTemplate.ApplyNow()
+            Templates.ApplyNowTemplate()
                 //.Change(fun () ->
                 //    files.Value <- ([{ size = 88; name = "Hallo" }; {size=0; name="Welt"}])
                 //)
@@ -446,10 +560,10 @@ module Client =
                 .City(Templates.InputField().Id("employerCity").LabelText("City").Var(stateRefs.employer.city).Doc())
                 .Email(Templates.InputField().Id("employerEmail").LabelText("Email").Var(stateRefs.employer.email).Doc())
                 .Phone(Templates.InputField().Id("employerPhone").LabelText("Phone").Var(stateRefs.employer.phone).Doc())
-                .MobilePhone(Templates.InputField().Id("employerMobilePhone").LabelText("MobilePhone").Var(stateRefs.user.mobilePhone).Doc())
+                .MobilePhone(Templates.InputField().Id("employerMobilePhone").LabelText("MobilePhone").Var(stateRefs.employer.mobilePhone).Doc())
                 .ApplyNowClick(fun () ->
                     async {
-                        let! rApplyNow = Server.applyNow (state.Value.user.Values()) state.Value.employer (currentDocument())
+                        let! rApplyNow = Server.applyNow (state.Value.user) state.Value.employer (currentDocument())
                         match rApplyNow with
                         | Ok _ -> JS.Alert("Application would have been sent")
                         | Failure msg -> JS.Alert(msg)
@@ -458,10 +572,11 @@ module Client =
                 )
                 .Doc()
         let userValuesTemplate =
-            UserValuesTemplate.UserValues()
+            Templates.UserValuesTemplate()
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female) ] stateRefs.user.gender)
                 .Degree(Templates.InputField().Id("userDegree").LabelText("Degree").Var(stateRefs.user.degree).Doc())
-                .Name(Templates.InputField().Id("name").LabelText("Name").Var(stateRefs.user.name).Doc())
+                .FirstName(Templates.InputField().Id("userFirstName").LabelText("First name").Var(stateRefs.user.firstName).Doc())
+                .LastName(Templates.InputField().Id("userLastName").LabelText("Last name").Var(stateRefs.user.lastName).Doc())
                 .Street(Templates.InputField().Id("userStreet").LabelText("Street").Var(stateRefs.user.street).Doc())
                 .Postcode(Templates.InputField().Id("userPostcode").LabelText("Postcode").Var(stateRefs.user.postcode).Doc())
                 .City(Templates.InputField().Id("userCity").LabelText("City").Var(stateRefs.user.city).Doc())
@@ -470,12 +585,12 @@ module Client =
                 .MobilePhone(Templates.InputField().Id("userMobilePhone").LabelText("MobilePhone").Var(stateRefs.user.mobilePhone).Doc())
                 .Doc()
         let emailTemplate =
-            EmailTemplate.Email()
+            Templates.EmailTemplate()
                 .Subject(Templates.InputField().Id("emailSubject").LabelText("Subject").Var(stateRefs.email.subject).Doc())
                 .Body(Templates.TextareaField().Id("emailBody").LabelText("Body").MinHeight("400px").Var(stateRefs.email.body).Doc())
                 .Doc()
         let loginTemplate =
-            LoginTemplate.Login()
+            Templates.LoginTemplate()
                 .Email(Templates.InputField().Id("loginEmail").LabelText("Email").Var(stateRefs.login.email).Doc())
                 .Password(Templates.PasswordField().Id("loginPassword").LabelText("Password").Var(stateRefs.login.password).Doc())
                 .Submit(fun () ->
@@ -492,7 +607,7 @@ module Client =
                 )
                 .Doc()
         let registerTemplate =
-            RegisterTemplate.Register()
+            Templates.RegisterTemplate()
                 .Email(Templates.InputField().Id("registerEmail").LabelText("Email").Var(stateRefs.register.email).Doc())
                 .Password(Templates.PasswordField().Id("registerPassword").LabelText("Password").Var(stateRefs.register.password).Doc())
                 .Submit(fun () ->
@@ -508,7 +623,7 @@ module Client =
                 )
                 .Doc()
         let changePasswordTemplate =
-            ChangePasswordTemplate.ChangePassword()
+            Templates.ChangePasswordTemplate()
                 .Password(Templates.PasswordField().Id("registerPassword").LabelText("New password").Var(stateRefs.register.password).Doc())
                 .Submit(fun () ->
                     async {
@@ -522,7 +637,7 @@ module Client =
                 )
                 .Doc()
         let forgotPasswordTemplate =
-            ForgotPasswordTemplate.ForgotPassword()
+            Templates.ForgotPasswordTemplate()
                 .Email(Templates.InputField().Id("resendPasswordTo").LabelText("Email").Var(stateRefs.register.password).Doc())
                 .Submit(fun () ->
                     async {
@@ -535,5 +650,5 @@ module Client =
                     } |> Async.Start
                 )
                 .Doc()
-        Doc.Concat [documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
+        Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
 
