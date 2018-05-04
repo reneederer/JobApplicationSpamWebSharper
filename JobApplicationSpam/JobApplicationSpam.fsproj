@@ -1,5 +1,8 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="15.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <Import Project="..\packages\xunit.runner.visualstudio.2.3.1\build\net20\xunit.runner.visualstudio.props" Condition="Exists('..\packages\xunit.runner.visualstudio.2.3.1\build\net20\xunit.runner.visualstudio.props')" />
+  <Import Project="..\packages\xunit.core.2.3.1\build\xunit.core.props" Condition="Exists('..\packages\xunit.core.2.3.1\build\xunit.core.props')" />
+  <Import Project="..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.props" Condition="Exists('..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.props')" />
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <PropertyGroup>
     <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
@@ -20,7 +23,7 @@
     <TargetFSharpCoreVersion>4.4.3.0</TargetFSharpCoreVersion>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <Name>JobApplicationSpam</Name>
-    <LastActiveSolutionConfig>Debug|Any CPU</LastActiveSolutionConfig>
+    <LastActiveSolutionConfig>Release|Any CPU</LastActiveSolutionConfig>
     <NuGetPackageImportStamp>
     </NuGetPackageImportStamp>
     <TargetFrameworkProfile />
@@ -66,6 +69,13 @@
   <PropertyGroup>
     <VisualStudioVersion Condition="'$(VisualStudioVersion)' == ''">10.0</VisualStudioVersion>
     <VSToolsPath Condition="'$(VSToolsPath)' == ''">$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)</VSToolsPath>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Test|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+    <DefineConstants>TRACE</DefineConstants>
+    <OutputPath>bin\</OutputPath>
   </PropertyGroup>
   <Import Project="$(VSToolsPath)\WebApplications\Microsoft.WebApplication.targets" Condition="'$(VSToolsPath)' != ''" />
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v10.0\WebApplications\Microsoft.WebApplication.targets" Condition="false" />
@@ -114,17 +124,16 @@
     </PropertyGroup>
     <Error Condition="!Exists('..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets'))" />
     <Error Condition="!Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.props'))" />
+    <Error Condition="!Exists('..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.targets'))" />
+    <Error Condition="!Exists('..\packages\xunit.core.2.3.1\build\xunit.core.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.core.2.3.1\build\xunit.core.props'))" />
+    <Error Condition="!Exists('..\packages\xunit.core.2.3.1\build\xunit.core.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.core.2.3.1\build\xunit.core.targets'))" />
+    <Error Condition="!Exists('..\packages\xunit.runner.visualstudio.2.3.1\build\net20\xunit.runner.visualstudio.props')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\xunit.runner.visualstudio.2.3.1\build\net20\xunit.runner.visualstudio.props'))" />
   </Target>
   <Import Project="..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets" Condition="Exists('..\packages\WebSharper.UI.Next.4.2.0.187\build\WebSharper.UI.Next.targets')" />
   <Import Project="..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets" Condition="Exists('..\packages\WebSharper.FSharp.4.2.9.256\build\WebSharper.FSharp.targets')" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Types.fs" />
-    <Compile Include="FileConverter.fs" />
-    <Compile Include="Server.fs" />
-    <Compile Include="Client.fs" />
-    <Compile Include="Main.fs" />
-    <Content Include="Main1.html" />
     <Content Include="Web.config">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -135,8 +144,17 @@
     <Content Include="templates\Main.html" />
     <Content Include="templates\Templates.html" />
     <None Include="JobApplicationSpam.sql" />
+    <Compile Include="src\Types.fs" />
+    <Compile Include="src\FileConverter.fs" />
+    <Compile Include="src\Server.fs" />
+    <Compile Include="src\Client.fs" />
+    <Compile Include="src\Main.fs" />
+    <Compile Include="test\Tests.fs" />
   </ItemGroup>
   <ItemGroup>
+    <Reference Include="Castle.Core">
+      <HintPath>..\packages\Castle.Core.4.2.1\lib\net45\Castle.Core.dll</HintPath>
+    </Reference>
     <Reference Include="FSharp.Configuration">
       <HintPath>..\packages\FSharp.Configuration.1.4.0\lib\net45\FSharp.Configuration.dll</HintPath>
     </Reference>
@@ -146,15 +164,27 @@
     <Reference Include="FSharp.Data.SqlProvider">
       <HintPath>..\..\..\..\..\.nuget\packages\sqlprovider\1.1.37\lib\net451\FSharp.Data.SqlProvider.dll</HintPath>
     </Reference>
+    <Reference Include="FsUnit.Xunit">
+      <HintPath>..\packages\FsUnit.xUnit.3.1.0\lib\net46\FsUnit.Xunit.dll</HintPath>
+    </Reference>
     <Reference Include="HtmlAgilityPack">
       <HintPath>..\packages\WebSharper.UI.Next.4.2.0.187\lib\net40\HtmlAgilityPack.dll</HintPath>
+    </Reference>
+    <Reference Include="JetBrains.Annotations">
+      <HintPath>..\packages\JetBrains.Annotations.9.2.0\lib\net20\JetBrains.Annotations.dll</HintPath>
     </Reference>
     <Reference Include="log4net">
       <HintPath>..\packages\log4net.2.0.8\lib\net45-full\log4net.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.VisualStudio.CodeCoverage.Shim">
+      <HintPath>..\packages\Microsoft.CodeCoverage.1.0.3\lib\netstandard1.0\Microsoft.VisualStudio.CodeCoverage.Shim.dll</HintPath>
+    </Reference>
     <Reference Include="mscorlib" />
     <Reference Include="FSharp.Core, Version=4.4.3.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a">
       <Private>True</Private>
+    </Reference>
+    <Reference Include="NHamcrest">
+      <HintPath>..\packages\NHamcrest.2.0.1\lib\net451\NHamcrest.dll</HintPath>
     </Reference>
     <Reference Include="Npgsql">
       <HintPath>..\packages\Npgsql.3.1.0\lib\net451\Npgsql.dll</HintPath>
@@ -171,6 +201,7 @@
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.ComponentModel.Composition" />
+    <Reference Include="System.Configuration" />
     <Reference Include="System.Console">
       <Private>True</Private>
     </Reference>
@@ -254,6 +285,9 @@
     <Reference Include="WebSharper.Sitelets">
       <HintPath>..\packages\WebSharper.4.2.9.256\lib\net461\WebSharper.Sitelets.dll</HintPath>
     </Reference>
+    <Reference Include="WebSharper.Testing">
+      <HintPath>..\packages\WebSharper.Testing.4.2.9.256\lib\net45\WebSharper.Testing.dll</HintPath>
+    </Reference>
     <Reference Include="WebSharper.UI.Next">
       <HintPath>..\packages\WebSharper.UI.Next.4.2.0.187\lib\net40\WebSharper.UI.Next.dll</HintPath>
     </Reference>
@@ -272,8 +306,19 @@
     <Reference Include="WebSharper.Web">
       <HintPath>..\packages\WebSharper.4.2.9.256\lib\net461\WebSharper.Web.dll</HintPath>
     </Reference>
-    <Reference Include="log4net.config">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    <Reference Include="xunit.abstractions">
+      <HintPath>..\packages\xunit.abstractions.2.0.1\lib\net35\xunit.abstractions.dll</HintPath>
+    </Reference>
+    <Reference Include="xunit.assert">
+      <HintPath>..\packages\xunit.assert.2.3.1\lib\netstandard1.1\xunit.assert.dll</HintPath>
+    </Reference>
+    <Reference Include="xunit.core">
+      <HintPath>..\packages\xunit.extensibility.core.2.3.1\lib\netstandard1.1\xunit.core.dll</HintPath>
+    </Reference>
+    <Reference Include="xunit.execution.desktop">
+      <HintPath>..\packages\xunit.extensibility.execution.2.3.1\lib\net452\xunit.execution.desktop.dll</HintPath>
     </Reference>
   </ItemGroup>
+  <Import Project="..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.targets" Condition="Exists('..\packages\Microsoft.NET.Test.Sdk.15.7.0\build\net45\Microsoft.Net.Test.Sdk.targets')" />
+  <Import Project="..\packages\xunit.core.2.3.1\build\xunit.core.targets" Condition="Exists('..\packages\xunit.core.2.3.1\build\xunit.core.targets')" />
 </Project>

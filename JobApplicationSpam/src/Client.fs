@@ -6,8 +6,8 @@ open WebSharper.UI.Next
 open WebSharper.UI.Next.Client
 open WebSharper.UI.Next.Html
 open WebSharper.JQuery
+open JobApplicationSpam.Server
 open Types
-
 
 type State =
     { documents : list<Document>
@@ -192,7 +192,7 @@ module Client =
               activeFileName = ""
               activeDocumentName = "Doc 1"
               employer = emptyEmployer
-              user = Guest (1, emptyUserValues)
+              user = Guest emptyUserValues
               login = { email = "rene.ederer.nbg@gmail.com"; password = "1234" }
               register = { email = ""; password = "" }
               changePassword = { password = "" }
@@ -526,10 +526,15 @@ module Client =
                     ev.StopPropagation()
                     async {
                         let formData : FormData = JS.Eval("""new FormData(document.getElementById("formId"));""") :?> FormData
-                        formData.Append("userId", string <| state.Value.user.Id())
-                        formData.Append("documentId", string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
-                        let! _ = ajax "POST" "/Upload" formData
-                        ()
+                        let! rUserId = Server.getCurrentUserId ()
+                        match rUserId with
+                        | Ok userId ->
+                            formData.Append("userId", string <| userId)
+                            formData.Append("documentId", string (state.Value.documents |> List.find (fun x -> x.name = state.Value.activeDocumentName) |> fun x -> x.id))
+                            let! _ = ajax "POST" "/Upload" formData
+                            ()
+                        | Failure msg -> JS.Alert(msg)
+                        | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
                 .SelectDocument(createSelect "selectDocument" (stateRefs.documents.View.Map(fun ds -> ds |> (List.map (fun (x : Document) -> x.name)))) stateRefs.activeDocumentName

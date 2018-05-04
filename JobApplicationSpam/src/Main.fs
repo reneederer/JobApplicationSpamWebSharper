@@ -8,6 +8,7 @@ open Types
 open System.Web
 open WebSharper.Sitelets.Http
 open System
+open JobApplicationSpam.Server
 
 
 type EndPoint =

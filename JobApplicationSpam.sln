@@ -5,9 +5,11 @@ VisualStudioVersion = 15.0.27428.2027
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JobApplicationSpam", "JobApplicationSpam\JobApplicationSpam.fsproj", "{701E8694-30AA-4848-A03D-8A9AE117BDA8}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Download", "Download\Download.fsproj", "{8AD6E59A-28BA-4E83-8193-1E8E4724B333}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DatabaseBackup", "DatabaseBackup\DatabaseBackup\DatabaseBackup.fsproj", "{64FE77C8-530F-4130-99CD-19B850A8F548}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Publish", "Publish\Publish.fsproj", "{E8EB06E7-CD2F-489A-8190-A4A7442CB43B}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DownloadRequired3rdPartyPrograms", "DownloadRequired3rdPartyPrograms\DownloadRequired3rdPartyPrograms.fsproj", "{8AD6E59A-28BA-4E83-8193-1E8E4724B333}"
+EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishJobApplicationSpam", "PublishJobApplicationSpam\PublishJobApplicationSpam.fsproj", "{E8EB06E7-CD2F-489A-8190-A4A7442CB43B}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -19,6 +21,10 @@ Global
 		{701E8694-30AA-4848-A03D-8A9AE117BDA8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{701E8694-30AA-4848-A03D-8A9AE117BDA8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{701E8694-30AA-4848-A03D-8A9AE117BDA8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{64FE77C8-530F-4130-99CD-19B850A8F548}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{64FE77C8-530F-4130-99CD-19B850A8F548}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{64FE77C8-530F-4130-99CD-19B850A8F548}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{64FE77C8-530F-4130-99CD-19B850A8F548}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8AD6E59A-28BA-4E83-8193-1E8E4724B333}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{8AD6E59A-28BA-4E83-8193-1E8E4724B333}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{8AD6E59A-28BA-4E83-8193-1E8E4724B333}.Release|Any CPU.ActiveCfg = Release|Any CPU

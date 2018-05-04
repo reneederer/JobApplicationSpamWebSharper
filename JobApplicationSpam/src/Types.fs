@@ -10,8 +10,18 @@ module Types =
     open System
     open System.Configuration
     open System.IO
+    open FSharp.Data.Sql
 
     type Settings = AppSettings<"Web.config">
+
+
+    type DB =
+        SqlDataProvider<
+            DatabaseVendor = FSharp.Data.Sql.Common.DatabaseProviderTypes.POSTGRESQL,
+            ConnectionString = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspam; Enlist=true",
+            ResolutionPath = "bin",
+            IndividualsAmount = 1000,
+            UseOptionTypes = true>
 
     type FilePage =
         { name : string
@@ -127,21 +137,17 @@ module Types =
         }
     type UserId = int
     type User = 
-        | LoggedInUser of (UserId * UserValues)
-        | Guest of (UserId * UserValues)
+        | LoggedInUser of UserValues
+        | Guest of UserValues
         with
             member this.Values() =
                 match this with
-                | LoggedInUser (_, userValues) -> userValues
-                | Guest (_, userValues) -> userValues
+                | LoggedInUser userValues -> userValues
+                | Guest userValues -> userValues
             member this.Values(userValues) =
                 match this with
-                | LoggedInUser (userId, userValues) -> LoggedInUser (userId, userValues)
-                | Guest (userId, userValues) -> Guest (userId, userValues)
-            member this.Id() =
-                match this with
-                | LoggedInUser (userId, userValues) -> userId
-                | Guest (userId, userValues) -> userId
+                | LoggedInUser userValues -> LoggedInUser userValues
+                | Guest userValues -> Guest userValues
 
     type SentApplicationStatus =
     | NotYetSent = 1

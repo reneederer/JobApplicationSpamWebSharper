@@ -1,6 +1,6 @@
-namespace JobApplicationSpam
+namespace JobApplicationSpam.Server
 
-open Types
+open JobApplicationSpam.Types
 open System.IO
 open System.Text.RegularExpressions
 open System.IO.Compression
