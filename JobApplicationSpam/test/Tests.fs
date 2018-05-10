@@ -6,22 +6,23 @@ open Types
 open System.Transactions
 
 open System
+open System.Linq
 open Xunit
 
 module Server = Server.Internal
 
 type InitTest () =
-    member this.dbContext =
-        DB.GetDataContext(
-            { FSharp.Data.Sql.Transactions.IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted;
-              FSharp.Data.Sql.Transactions.Timeout = TimeSpan.FromSeconds 900.}, 900)
+    let options : FSharp.Data.Sql.Transactions.TransactionOptions =
+            { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadUncommitted
+              Timeout = TimeSpan.FromSeconds 100000. }
     member val scope =
-        new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted)) with get, set
+        new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = System.Transactions.IsolationLevel.ReadUncommitted, Timeout = TimeSpan.FromSeconds 10000.)) with get, set
+    member val dbContext = DB.GetDataContext(options)
     interface IDisposable with
         member this.Dispose() =
             Server.getUserSession().Logout() |> Async.RunSynchronously
             this.scope <-
-                new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted))
+                new TransactionScope(TransactionScopeOption.RequiresNew, TransactionOptions(IsolationLevel = IsolationLevel.ReadUncommitted))
 
 type MyTests ()  =
     inherit InitTest()
@@ -38,7 +39,8 @@ type MyTests ()  =
             Ok
               ( "",
                 LoggedInUser
-                  { gender = Gender.Male
+                  { id = 1
+                    gender = Gender.Male
                     degree = ""
                     firstName = "Rene"
                     lastName = "Ederer"
@@ -53,33 +55,47 @@ type MyTests ()  =
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal (Some "1")
         actual |> should equal expected
 
-    [<Fact>]
     member this.``register with nonexisting email should login the user and return a Guest``() =
-        let actual =
+        let actualReturnedSessionGuid, actualReturnedUser =
             match register' "nonexisting@email.com" "password" this.dbContext with
-            | Ok (sessionGuid, user) ->
-                sessionGuid |> should not' (equal "")
-                Ok ("", user)
-            | v -> v
-                
-        let expected =
-            Ok
-              ( "",
-                Guest
-                  { gender = Gender.Unknown
-                    degree = ""
-                    firstName = ""
-                    lastName = ""
-                    street = ""
-                    postcode = ""
-                    city = ""
-                    email = "nonexisting@email.com"
-                    phone = ""
-                    mobilePhone = ""
-                  }
-              )
-        //Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal (Some "3")
-        actual |> should equal expected
+            | Ok (sessionGuid, user) -> sessionGuid, user
+            | _ -> failwith "failure"
+
+        let actualDbEmail, actualDbSessionGuid, actualDbPassword, actualDbSalt, actualDbUserId =
+            (query {
+                for dbUserValues in this.dbContext.Public.Uservalues do
+                join dbUser in this.dbContext.Public.Users on (dbUserValues.Userid = dbUser.Id)
+                where (dbUserValues.Email = "nonexisting@email.com")
+                select (dbUserValues.Email, dbUser.Sessionguid, dbUser.Password, dbUser.Salt, dbUser.Id)
+            }).Single()
+
+        let expectedUser =
+            Guest
+              { id = 3
+                gender = Gender.Unknown
+                degree = ""
+                firstName = ""
+                lastName = ""
+                street = ""
+                postcode = ""
+                city = ""
+                email = "nonexisting@email.com"
+                phone = ""
+                mobilePhone = ""
+              }
+
+        ( Some actualReturnedSessionGuid,
+          actualReturnedUser,
+          actualDbEmail,
+          actualDbPassword,
+          Some (string actualDbUserId))
+        |> should equal
+            ( actualDbSessionGuid,
+              expectedUser,
+              "nonexisting@email.com",
+              Server.generateHashWithSalt "password" actualDbSalt 1000 64,
+              Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously
+            )
 
     [<Fact>]
     member this.``login with correct email and password and unconfirmed email should set the loggedInUser to (Some userId) and return a Guest``() =
@@ -94,7 +110,8 @@ type MyTests ()  =
             Ok
               ( "",
                 Guest
-                  { gender = Gender.Male
+                  { id = 2
+                    gender = Gender.Male
                     degree = ""
                     firstName = "Helmut"
                     lastName = "Goerke"
@@ -138,4 +155,3 @@ type MyTests ()  =
         let expected : Result<unit> = Ok ()
         actual |> should equal expected
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
-

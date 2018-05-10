@@ -12,6 +12,9 @@
 *.log.1
 *.log.2
 Web.config
+PublishJobApplicationSpam/App.config
+DatabaseBackup/App.config
+DownloadRequired3rdPartyPrograms/App.config
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs

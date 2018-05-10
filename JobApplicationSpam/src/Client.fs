@@ -87,6 +87,7 @@ module Client =
     open System
 
     type Templates = Templating.Template<"templates/Templates.html">
+    type MainTemplate = Templating.Template<"templates/Main.html">
 
     type UserRefs =
         { gender : IRef<Gender>
@@ -366,6 +367,15 @@ module Client =
                     |> ignore
                 )
 
+        let loadSentApplications () =
+            async {
+                let! rSentApplications = Server.getSentApplications()
+                match rSentApplications with
+                | Ok sentApplications ->
+                    state.Value <- { state.Value with sentApplications = sentApplications }
+                | Failure msg -> JS.Alert(msg)
+                | Error -> JS.Alert("Sorry, an error occurred")
+            }
         let loadDocuments () =
             async {
                 JS.Alert("loading documents!")
@@ -394,74 +404,11 @@ module Client =
                 | Ok user ->
                     state.Value <- { state.Value with user = user }
                     do! loadDocuments ()
+                    do! loadSentApplications()
                 | Failure _ -> JS.Alert("Failed to log you in")
                 | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
         let sentApplicationsTemplate =
-            stateRefs.sentApplications.Value <-
-                   [ { employer =
-                         { company = "A company"
-                           street = ""
-                           postcode = ""
-                           city = ""
-                           gender = Gender.Male
-                           degree = ""
-                           firstName = "Tom"
-                           lastName = "Meier"
-                           email = ""
-                           phone = ""
-                           mobilePhone = ""
-                         }
-                       userValues =
-                         { gender = Gender.Female
-                           degree = ""
-                           firstName = "Berta"
-                           lastName = "Müller"
-                           street = ""
-                           postcode = ""
-                           city = ""
-                           email = ""
-                           phone = ""
-                           mobilePhone = ""
-                         }
-                       emailSubject = "hallo welt"
-                       emailBody = "123"
-                       jobName = "Fachinformatiker"
-                       customVariables = ""
-                       statusHistory = [DateTime.Now, 1]
-                     }
-                     { employer =
-                         { company = "BBBBBBBBBBBBB company"
-                           street = "B street"
-                           postcode = "90419"
-                           city = "Nürnberg"
-                           gender = Gender.Female
-                           degree = "Dr."
-                           firstName = "Christina"
-                           lastName = "Kreuzer"
-                           email = "employer@b.de"
-                           phone = "0911 29831118"
-                           mobilePhone = "0151 129823"
-                         }
-                       userValues =
-                         { gender = Gender.Male
-                           degree = ""
-                           firstName = ""
-                           lastName = ""
-                           street = ""
-                           postcode = ""
-                           city = ""
-                           email = ""
-                           phone = ""
-                           mobilePhone = ""
-                         }
-                       emailSubject = "hallo welt"
-                       emailBody = "123"
-                       jobName = "Fachinformatiker"
-                       customVariables = ""
-                       statusHistory = [DateTime.Parse("2003-04-30"), 2]
-                     }
-                   ]
             Templates.SentApplicationsTemplate()
                 .SentApplications(stateRefs.sentApplications.View.DocSeqCached(fun (sentApplication : SentApplication) ->
                     Templates.SentApplication()
@@ -478,6 +425,7 @@ module Client =
                                                     company = sentApplication.employer.company
                                                     firstName = sentApplication.employer.firstName
                                                 }
+                                            statusHistory = sentApplication.statusHistory
                                         }
                                 }
                             modalEl?style?display <- "block"
@@ -486,10 +434,10 @@ module Client =
                                     modalEl?style?display <- "none";
                                 )
                         )
+                        .AppliedOn((fst sentApplication.statusHistory.[0]).ToShortDateString())
                         .Doc())
                 )
                 .Company(state.View.Map(fun s -> s.sentApplicationsModalValues.employer.company))
-                .FirstName(state.View.Map(fun s -> s.sentApplicationsModalValues.employer.firstName))
                 .Doc()
         JS.Window.Onclick <-
             (fun evt ->
@@ -511,11 +459,29 @@ module Client =
                                     stateRefs.activeFileName.Value <- filePage.name
                                 )
                                 .Delete(fun _ ->
-                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name))
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name)
+                                    async {
+                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        return ()
+                                    }
+                                    |> Async.Start
+                                )
                                 .MoveUp(fun _ ->
-                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name))
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name)
+                                    async {
+                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        return ()
+                                    }
+                                    |> Async.Start
+                                )
                                 .MoveDown(fun _ ->
-                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name))
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name)
+                                    async {
+                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        return ()
+                                    }
+                                    |> Async.Start
+                                )
                                 .Doc()
                         | HtmlPage htmlPage ->
                             Doc.Empty
@@ -606,6 +572,7 @@ module Client =
                             Cookies.Set("sessionGuid", sessionGuid)
                             state.Value <- { state.Value with user = user }
                             do! loadDocuments ()
+                            do! loadSentApplications ()
                         | Failure msg -> JS.Alert(msg)
                         | _ -> JS.Alert("Sorry an error occurred.")
                     } |> Async.Start
@@ -655,5 +622,10 @@ module Client =
                     } |> Async.Start
                 )
                 .Doc()
-        Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
+        MainTemplate()
+            .Title("Bewerbungsspam")
+            .Body(
+                Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
+            )
+            .Doc()
 

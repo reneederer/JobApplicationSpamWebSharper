@@ -15,30 +15,16 @@ type EndPoint =
     | [<EndPoint "/">] Home
     | [<EndPoint "POST /Upload">] Upload of fileUpload : FileUpload
 
-module Templating =
-    type MainTemplate = Templating.Template<"templates/Main.html">
-
-    let Main ctx action (title: string) (body: Doc list) =
-        Content.Page(
-            MainTemplate()
-                .Title(title)
-                .Body(body)
-                .Doc()
-        )
-
 module Site =
     open WebSharper.UI.Next.Html
     open System.IO
     open log4net
     open System.Reflection
-    open System.Transactions
 
     let log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
 
     let HomePage ctx =
-        Templating.Main ctx EndPoint.Home "Bewerbungsspam" [
-            div [client <@ Client.Main() @>]
-        ]
+        Content.Page({ Page.Default with Body = [ client <@ Client.Main() @> ]})
 
     [<Website>]
     let Main =

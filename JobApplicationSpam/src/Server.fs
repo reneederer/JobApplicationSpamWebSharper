@@ -180,7 +180,8 @@ module Internal =
                     where (userValues.Id = userValuesId)
                     select
                         ( user.Id, user.Password, user.Salt, user.Confirmemailguid,
-                          { gender = Gender.FromString userValues.Gender
+                          { id = userValuesId
+                            gender = Gender.FromString userValues.Gender
                             degree = userValues.Degree
                             firstName = userValues.Firstname
                             lastName = userValues.Lastname
@@ -210,7 +211,6 @@ module Internal =
                     Ok (sessionGuid, LoggedInUser userValues)
                 | Some _ ->
                     Ok (sessionGuid, Guest userValues)
-                | _ -> Error
             else Failure "Email or password is wrong."
         | [] -> Failure "Email or password is wrong."
         | _ ->
@@ -260,7 +260,8 @@ module Internal =
             getUserSession().LoginUser(string user.Id) |> Async.RunSynchronously
             Ok ( sessionGuid, 
                  Guest
-                   { gender = Gender.FromString userValues.Gender
+                   { id = userValues.Id
+                     gender = Gender.FromString userValues.Gender
                      degree = userValues.Degree
                      firstName = userValues.Firstname
                      lastName = userValues.Lastname
@@ -274,19 +275,20 @@ module Internal =
                )
         | _ -> Failure "This email is already registered"
 
-    let saveAsNewDocument' (document : Document) (dbContext : DB.dataContext) =
+    let saveAsNewDocument' (document : Document) userValuesId (dbContext : DB.dataContext) =
         let dbDocument = dbContext.Public.Document.Create()
         dbDocument.Customvariables <- document.customVariables
         dbDocument.Jobname <- document.jobName
         dbDocument.Name <- document.name
         dbDocument.Emailsubject <- document.emailSubject
         dbDocument.Emailbody <- document.emailBody
+        dbDocument.Uservaluesid <- userValuesId
         dbContext.SubmitUpdates()
 
         document.pages
         |> List.iteri (fun i page ->
             let dbPage = dbContext.Public.Page.Create()
-            dbPage.Documentid <- document.id
+            dbPage.Documentid <- dbDocument.Id
             dbPage.Pageindex <- i + 1
             dbContext.SubmitUpdates()
             match page with
@@ -355,7 +357,8 @@ module Server =
                 where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
                 select
                     ( user.Confirmemailguid, 
-                      { gender = Gender.FromString userValues.Gender
+                      { id = userValues.Id
+                        gender = Gender.FromString userValues.Gender
                         degree = userValues.Degree
                         firstName = userValues.Firstname
                         lastName = userValues.Lastname
@@ -504,9 +507,10 @@ module Server =
                         let   filePages =
                             query {
                                 for filePage in dbContext.Public.Filepage do
+                                join page in dbContext.Public.Page on (filePage.Pageid = page.Id)
                                 where (filePage.Id |=| pageIds)
                                 select
-                                    ( filePage.Pageid,
+                                    ( page.Pageindex,
                                       FilePage
                                         { name = filePage.Name
                                           size = 0
@@ -517,9 +521,10 @@ module Server =
                         let htmlPages =
                             query {
                                 for htmlPage in dbContext.Public.Htmlpage do
+                                join page in dbContext.Public.Page on (htmlPage.Pageid = page.Id)
                                 where (htmlPage.Id |=| pageIds)
                                 select
-                                    ( htmlPage.Pageid,
+                                    ( page.Pageindex,
                                       HtmlPage
                                         { name = htmlPage.Name
                                         }
@@ -540,7 +545,6 @@ module Server =
                 | [] ->
                     let dbDocument = dbContext.Public.Document.Create()
                     dbDocument.Customvariables <- ""
-                    dbDocument.Deletedon <- None
                     dbDocument.Emailbody <- "Hi there!"
                     dbDocument.Emailsubject <- "Application as farmer"
                     dbDocument.Jobname <- "Farmer"
@@ -591,16 +595,8 @@ module Server =
         deleteDocumentHard document |> withTransaction
 
     [<Remote>]
-    let deleteDocumentSoft (document : Document) =
-        let deleteDocumentSoft (document : Document) (dbContext : DB.dataContext) =
-            dbContext.Public.Document.Where(fun doc -> doc.Id = document.id) |> Seq.iter(fun x -> x.Deletedon <- Some DateTime.Now)
-            dbContext.SubmitUpdates()
-            Ok ()
-        deleteDocumentSoft document |> withTransaction
-
-    [<Remote>]
-    let saveAsNewDocument (document : Document) =
-        saveAsNewDocument' document |> withTransaction
+    let saveAsNewDocument (document : Document) userValuesId =
+        saveAsNewDocument' document userValuesId |> withTransaction
     
     [<Remote>]
     let addFilePage fileName filePath (documentId : int) =
@@ -760,14 +756,12 @@ module Server =
                 }).Single()
             let dbDocument = dbContext.Public.Document.Create()
             dbDocument.Customvariables <- document.customVariables
-            dbDocument.Deletedon <- None
             dbDocument.Emailbody <- document.emailBody
             dbDocument.Emailsubject <- document.emailSubject
             dbDocument.Jobname <- document.jobName
             dbDocument.Name <- document.name
             dbDocument.Uservaluesid <- newUserValues.Id
 
-            oldDocument.Deletedon <- Some DateTime.Now
             dbContext.SubmitUpdates()
 
             //add pages
@@ -816,7 +810,6 @@ module Server =
                     | "pdf" -> PdfPage filePage
                     | s -> Unknown s
 
-
             // with pages do replace values and convert to pdf
             let pdfFilePaths =
                 [ for page in document.pages do
@@ -840,53 +833,79 @@ module Server =
                 ]
             let mergedPdfFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N") + ".pdf")
             if pdfFilePaths <> [] then FileConverter.mergePdfs pdfFilePaths mergedPdfFilePath
-            //sendEmail (user.Values().email) (user.Values().firstName + user.Values().lastName) (user.Values().email) document.emailSubject document.emailBody [mergedPdfFilePath, "Bewerbung"]
+            let replaceValuesMap = getReplaceValuesMap employer (user.Values()) document |> Async.RunSynchronously
+            //sendEmail
+            //    (user.Values().email)
+            //    (user.Values().firstName + user.Values().lastName)
+            //    (user.Values().email)
+            //    (FileConverter.replaceInString document.emailSubject replaceValuesMap)
+            //    (FileConverter.replaceInString document.emailBody replaceValuesMap)
+            //    [mergedPdfFilePath, "Bewerbung_" + (user.Values().firstName) + "_" + (user.Values().lastName) + ".pdf" ]
             Ok ()
         applyNow' |> withCurrentUser |> withTransaction
 
     [<Remote>]
     let getSentApplications() =
         let getSentApplications' userId (dbContext : DB.dataContext) =
-            query {
-                for document in dbContext.Public.Document do
-                join application in dbContext.Public.Application on (document.Id = application.Documentid)
-                join userValues in dbContext.Public.Uservalues on (document.Uservaluesid = userValues.Id)
-                join user in dbContext.Public.Users on (userValues.Userid = user.Id)
-                join employer in dbContext.Public.Employer on (application.Employerid = employer.Id)
-                where (application.Documentid = userId)
-                select
-                   ({ employer =
-                        { company = employer.Company
-                          street = employer.Street
-                          postcode = employer.Postcode
-                          city = employer.City
-                          gender = Gender.FromString(employer.Gender)
-                          degree = employer.Degree
-                          firstName = employer.Firstname
-                          lastName = employer.Lastname
-                          email = employer.Email
-                          phone = employer.Phone
-                          mobilePhone = employer.Mobilephone
-                        }
-                      userValues =
-                        { gender = Gender.FromString(userValues.Gender)
-                          degree = userValues.Degree
-                          firstName = userValues.Firstname
-                          lastName = userValues.Lastname
-                          street = userValues.Street
-                          postcode = userValues.Postcode
-                          city = userValues.City
-                          email = userValues.Email
-                          phone = userValues.Phone
-                          mobilePhone = userValues.Mobilephone
-                        }
-                      emailSubject = document.Emailsubject
-                      emailBody = document.Emailbody
-                      jobName = document.Jobname
-                      customVariables = document.Customvariables
-                      statusHistory = []
-                    } |> Ok)
-            }
+            let sentApplicationsWithoutStatusHistory =
+                query {
+                    for document in dbContext.Public.Document do
+                    join application in dbContext.Public.Application on (document.Id = application.Documentid)
+                    join userValues in dbContext.Public.Uservalues on (document.Uservaluesid = userValues.Id)
+                    join user in dbContext.Public.Users on (userValues.Userid = user.Id)
+                    join employer in dbContext.Public.Employer on (application.Employerid = employer.Id)
+                    where (application.Userid = userId)
+                    select
+                        ( application.Id,
+                          { employer =
+                              { company = employer.Company
+                                street = employer.Street
+                                postcode = employer.Postcode
+                                city = employer.City
+                                gender = Gender.FromString(employer.Gender)
+                                degree = employer.Degree
+                                firstName = employer.Firstname
+                                lastName = employer.Lastname
+                                email = employer.Email
+                                phone = employer.Phone
+                                mobilePhone = employer.Mobilephone
+                              }
+                            userValues =
+                              { id = userValues.Id
+                                gender = Gender.FromString(userValues.Gender)
+                                degree = userValues.Degree
+                                firstName = userValues.Firstname
+                                lastName = userValues.Lastname
+                                street = userValues.Street
+                                postcode = userValues.Postcode
+                                city = userValues.City
+                                email = userValues.Email
+                                phone = userValues.Phone
+                                mobilePhone = userValues.Mobilephone
+                              }
+                            emailSubject = document.Emailsubject
+                            emailBody = document.Emailbody
+                            jobName = document.Jobname
+                            customVariables = document.Customvariables
+                            statusHistory = []
+                          }
+                        )
+                } |> Seq.toList
+            let sentApplicationsWithStatusHistory =
+                sentApplicationsWithoutStatusHistory
+                |> List.map (fun (applicationId, sentApplication) ->
+                    { sentApplication with
+                        statusHistory =
+                            query {
+                                for sentStatus in dbContext.Public.Sentstatus do
+                                join application in dbContext.Public.Application on (sentStatus.Applicationid = application.Id)
+                                where (application.Id = applicationId)
+                                select (sentStatus.Statuschangedon, sentStatus.Sentstatusvalueid)
+                            } |> Seq.toList
+                    }
+                )
+            log.Debug(sentApplicationsWithStatusHistory |> List.length |> string)
+            Ok sentApplicationsWithStatusHistory
         getSentApplications' |> withCurrentUser |> readDB
          
     //[<Remote>]

@@ -81,7 +81,8 @@ module Types =
         { email : string
         }
     type UserValues =
-        { gender : Gender
+        { id : int
+          gender : Gender
           degree : string
           firstName : string
           lastName : string
@@ -93,7 +94,8 @@ module Types =
           mobilePhone : string
         }
     let emptyUserValues =
-        { gender = Gender.Unknown
+        { id = 0
+          gender = Gender.Unknown
           degree = ""
           firstName = ""
           lastName = ""
@@ -163,8 +165,8 @@ module Types =
           emailSubject : string
           emailBody : string
           jobName : string
-          statusHistory : list<DateTime * int>
           customVariables : string
+          statusHistory : list<DateTime * int>
         }
     type Result<'a> =
     | Ok of 'a

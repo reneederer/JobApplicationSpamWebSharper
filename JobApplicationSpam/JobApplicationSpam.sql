@@ -67,7 +67,6 @@ create table document ( id serial primary key,
 						customVariables text not null,
 						emailSubject text not null,
 						emailBody text not null,
-						deletedOn date null,
 						foreign key(userValuesId) references userValues(id));
 
 create table page ( id serial primary key,
@@ -148,4 +147,16 @@ insert into application ( userId, documentId, employerId)
                  values (1, 1, 1);
 insert into application ( userId, documentId, employerId)
                  values (1, 2, 2);
+insert into sentStatus ( applicationId,
+						  statusChangedOn,
+						  dueOn,
+						  sentStatusValueId,
+						  statusMessage)
+                values ( 1, '2007-06-20', null, 1, '');
+insert into sentStatus ( applicationId,
+						  statusChangedOn,
+						  dueOn,
+						  sentStatusValueId,
+						  statusMessage)
+                values ( 2, '2007-06-20', null, 1, '');
 
