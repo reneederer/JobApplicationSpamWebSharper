@@ -150,6 +150,8 @@ module Client =
           changePassword : ChangePasswordRefs
           forgotPassword : ForgotPasswordRefs
           changeEmail : ChangeEmailRefs
+          activeSidebarItems : Var<list<string>>
+          mainbarLoginDiv : Var<Doc>
         }
     let state : Var<State> =
         Var.Create
@@ -209,6 +211,7 @@ module Client =
                     customVariables = ""
                   }
             }
+    
     let stateRefs =
         { documents =
             state.Lens
@@ -304,9 +307,36 @@ module Client =
             }
           activeFileName = state.Lens (fun s -> s.activeFileName) (fun s v -> { s with activeFileName = v })
           activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
-
+          activeSidebarItems = Var.Create [ "DocumentsAndFiles" ]
+          mainbarLoginDiv = Var.CreateWaiting ()
         }
 
+    let getMainbarLoginDiv user =
+        match user with
+        | LoggedInUser values ->
+            Templates.MainbarLoginDivLoggedInUser()
+                .LoggedInUserInitial(values.email.Substring(0, 1).ToUpper())
+                .Click(fun el ev ->
+                    stateRefs.activeSidebarItems.Value <- [ "Logout"; "ChangeEmail"; "ChangePassword"; "ForgotPassword"; ]
+                )
+                .Doc()
+        | Guest values when values.email = "" ->
+            Templates.MainbarLoginDivGuest()
+                .GuestType("Guest")
+                .CallToActionText("Register now to avoid data loss")
+                .CallToActionClick(fun () ->
+                    stateRefs.activeSidebarItems.Value <- ["Login"; "Register" ]
+                )
+                .Doc()
+        | Guest values ->
+            Templates.MainbarLoginDivGuest()
+                .GuestType("Temporary user")
+                .CallToActionText("Confirm your email to avoid data loss")
+                .CallToActionClick(fun () ->
+                    stateRefs.activeSidebarItems.Value <- [ "Logout"; "ResendConfirmEmailEmail" ]
+                )
+                .Doc()
+    stateRefs.mainbarLoginDiv.Value <- getMainbarLoginDiv (Guest emptyUserValues)
     let currentDocument() =
         let documentIndex = state.Value.documents |> List.findIndex (fun x -> x.name = state.Value.activeDocumentName)
         state.Value.documents.[documentIndex]
@@ -337,6 +367,11 @@ module Client =
             id
             items
             ref
+    
+    let setUser user =
+        state.Value <- { state.Value with user = user }
+        stateRefs.mainbarLoginDiv.Value <- getMainbarLoginDiv state.Value.user
+        stateRefs.activeSidebarItems.Value <- ["DocumentsAndFiles"]
 
     let Main () =
         let ajax (method: string) (url: string) (formData : FormData) : Async<string> =
@@ -402,7 +437,7 @@ module Client =
                 let! rLogin = Server.loginWithSessionGuid oSessionGuid.Value
                 match rLogin with
                 | Ok user ->
-                    state.Value <- { state.Value with user = user }
+                    setUser user
                     do! loadDocuments ()
                     do! loadSentApplications()
                 | Failure _ -> JS.Alert("Failed to log you in")
@@ -437,6 +472,7 @@ module Client =
                         .AppliedOn((fst sentApplication.statusHistory.[0]).ToShortDateString())
                         .Doc())
                 )
+                .SentApplicationsActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |> List.contains "SentApplications")))
                 .Company(state.View.Map(fun s -> s.sentApplicationsModalValues.employer.company))
                 .Doc()
         JS.Window.Onclick <-
@@ -448,6 +484,7 @@ module Client =
 
         let documentsAndFilesTemplate =
             Templates.DocumentsAndFilesTemplate()
+                .DocumentsAndFilesActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |> List.contains "DocumentsAndFiles")))
                 .DocumentPages(
                     stateRefs.pages.View.DocSeqCached(fun (page : Page) ->
                         match page with
@@ -514,12 +551,17 @@ module Client =
                 //.Change2(fun () ->
                 //    files.Value <- ([{ size = 88; name = "abc" }; {size = 0; name="def"}; {size = 0; name="ghi"}])
                 //)
+                .ApplyNowActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ApplyNow")))
                 .UserEmail(
+                    Templates.InputField().Id("applyNowUserEmail").LabelText("Your email").Var(stateRefs.user.email).Doc()
+                    (*
                     match state.Value.user with
                     | Guest _ ->
                         Templates.InputField().Id("applyNowUserEmail").LabelText("Your email").Var(stateRefs.user.email).Doc()
                     | LoggedInUser _ ->
                         Doc.Empty)
+                    *)
+                )
                 .JobName(Templates.InputField().Id("jobName").LabelText("ApplyAs").Var(stateRefs.jobName).Doc())
                 .Company(Templates.InputField().Id("employerCompany").LabelText("Company").Var(stateRefs.employer.company).Doc())
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female); ("Unknown", Gender.Unknown) ] stateRefs.employer.gender)
@@ -544,6 +586,7 @@ module Client =
                 .Doc()
         let userValuesTemplate =
             Templates.UserValuesTemplate()
+                .UserValuesActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "UserValues")))
                 .Gender(createRadioButton "Gender" [ ("Male", Gender.Male); ("Female", Gender.Female) ] stateRefs.user.gender)
                 .Degree(Templates.InputField().Id("userDegree").LabelText("Degree").Var(stateRefs.user.degree).Doc())
                 .FirstName(Templates.InputField().Id("userFirstName").LabelText("First name").Var(stateRefs.user.firstName).Doc())
@@ -557,6 +600,7 @@ module Client =
                 .Doc()
         let emailTemplate =
             Templates.EmailTemplate()
+                .EmailActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "Email")))
                 .Subject(Templates.InputField().Id("emailSubject").LabelText("Subject").Var(stateRefs.email.subject).Doc())
                 .Body(Templates.TextareaField().Id("emailBody").LabelText("Body").MinHeight("400px").Var(stateRefs.email.body).Doc())
                 .Doc()
@@ -570,13 +614,14 @@ module Client =
                         match rLogin with
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
-                            state.Value <- { state.Value with user = user }
+                            setUser user
                             do! loadDocuments ()
                             do! loadSentApplications ()
                         | Failure msg -> JS.Alert(msg)
                         | _ -> JS.Alert("Sorry an error occurred.")
                     } |> Async.Start
                 )
+                .LoginActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "Login")))
                 .Doc()
         let registerTemplate =
             Templates.RegisterTemplate()
@@ -588,15 +633,16 @@ module Client =
                         match rRegister with
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
-                            state.Value <- { state.Value with user = user }
+                            setUser user
                         | Failure msg -> JS.Alert(msg)
                         | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
+                .RegisterActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "Register")))
                 .Doc()
         let changePasswordTemplate =
             Templates.ChangePasswordTemplate()
-                .Password(Templates.PasswordField().Id("registerPassword").LabelText("New password").Var(stateRefs.register.password).Doc())
+                .Password(Templates.PasswordField().Id("changePasswordPassword").LabelText("New password").Var(stateRefs.register.password).Doc())
                 .Submit(fun () ->
                     async {
                         let! rChangePassword = Server.changePassword state.Value.changePassword.password
@@ -607,6 +653,35 @@ module Client =
                         | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
+                .ChangePasswordActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ChangePassword")))
+                .Doc()
+        let changeEmailTemplate =
+            Templates.ChangeEmailTemplate()
+                .Email(Templates.InputField().Id("changeEmailEmail").LabelText("New email").Var(stateRefs.user.email).Doc())
+                .Submit(fun () ->
+                    async {
+                        JS.Alert("unimplemented")
+                    } |> Async.Start
+                )
+                .ChangeEmailActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ChangeEmail")))
+                .Doc()
+        let logoutTemplate =
+            Templates.LogoutTemplate()
+                .Logout(fun () ->
+                    async {
+                        JS.Alert("unimplemented")
+                    } |> Async.Start
+                )
+                .LogoutActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "Logout")))
+                .Doc()
+        let resendConfirmationEmailEmailTemplate =
+            Templates.ResendConfirmEmailEmailTemplate()
+                .Submit(fun () ->
+                    async {
+                        JS.Alert("unimplemented")
+                    } |> Async.Start
+                )
+                .ResendConfirmEmailEmailActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ResendConfirmationEmailEmail")))
                 .Doc()
         let forgotPasswordTemplate =
             Templates.ForgotPasswordTemplate()
@@ -621,11 +696,28 @@ module Client =
                         | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
+                .ForgotPasswordActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ForgotPassword")))
                 .Doc()
         MainTemplate()
             .Title("Bewerbungsspam")
             .Body(
-                Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; loginTemplate; registerTemplate; applyNowTemplate; emailTemplate; userValuesTemplate]
+                Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; applyNowTemplate; emailTemplate; userValuesTemplate; loginTemplate; registerTemplate; logoutTemplate; changePasswordTemplate; changeEmailTemplate; forgotPasswordTemplate ]
+            )
+            .MainbarLoginDiv(Doc.EmbedView stateRefs.mainbarLoginDiv.View)
+            .SidebarMenuApplyNowClick(
+                fun el ev -> stateRefs.activeSidebarItems.Value <- ["ApplyNow"]
+            )
+            .SidebarMenuEmailClick(
+                fun el ev -> stateRefs.activeSidebarItems.Value <- ["Email"]
+            )
+            .SidebarMenuSentApplicationsClick(
+                fun el ev -> stateRefs.activeSidebarItems.Value <- ["SentApplications"]
+            )
+            .SidebarMenuDocumentsAndFilesClick(
+                fun el ev -> stateRefs.activeSidebarItems.Value <- ["DocumentsAndFiles"]
+            )
+            .SidebarMenuUserValuesClick(
+                fun el ev -> stateRefs.activeSidebarItems.Value <- ["UserValues"]
             )
             .Doc()
 

@@ -1,120 +1,165 @@
 ﻿<div ws-children-template="DocumentsAndFilesTemplate">
-    <h3>Your application documents</h3>
-    <div ws-replace="SelectDocument"></div>
-    <div ws-hole="DocumentPages">
-        <div ws-template="DocumentFile">
-            <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
-            <button ws-onclick="Delete">delete</button>
-            <button ws-onclick="MoveUp">MoveUp</button>
-            <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
+    <div ws-attr="DocumentsAndFilesActive">
+        <h3>Your application documents</h3>
+        <div ws-replace="SelectDocument"></div>
+        <div ws-hole="DocumentPages">
+            <div ws-template="DocumentFile">
+                <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
+                <button ws-onclick="Delete">delete</button>
+                <button ws-onclick="MoveUp">MoveUp</button>
+                <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
+            </div>
         </div>
+        <form id="formId" method="post" action="/Upload">
+            <input type="file" name="file" id="file" ws-onchange="UploadFile" />
+        </form>
     </div>
-    <form id="formId" method="post" action="/Upload">
-        <input type="file" name="file" id="file" ws-onchange="UploadFile" />
-    </form>
 </div>
 
 <div ws-children-template="SentApplicationsTemplate">
-    <h3>Your sent applications:</h3>
-    <div id="myModal" class="modal">
-        <div class="modal-content">
-            <span class="close">&times;</span>
-            <p>Company: ${Company}<br />
-            </p>
+    <div ws-attr="SentApplicationsActive">
+        <h3>Your sent applications:</h3>
+        <div id="myModal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <p>Company: ${Company}<br />
+                </p>
+            </div>
         </div>
-    </div>
-    <div ws-hole="SentApplications">
-        <table>
-            <tr>
-                <td>Company</td>
-                <td>Applied on</td>
-                <td>Status</td>
-            </tr>
-            <tr ws-template="SentApplication">
-                <td>
-                    <button ws-onclick="Click">${Company}</button>
-                </td>
-                <td>
-                    ${AppliedOn}
-                </td>
-                <td>
-                    ${SentStatus}
-                </td>
-            </tr>
-        </table>
+        <div ws-hole="SentApplications">
+            <table>
+                <tr>
+                    <td>Company</td>
+                    <td>Applied on</td>
+                    <td>Status</td>
+                </tr>
+                <tr ws-template="SentApplication">
+                    <td>
+                        <button ws-onclick="Click">${Company}</button>
+                    </td>
+                    <td>
+                        ${AppliedOn}
+                    </td>
+                    <td>
+                        ${SentStatus}
+                    </td>
+                </tr>
+            </table>
+        </div>
     </div>
 </div>
 
 <div ws-children-template="EmailTemplate">
-    <h1>Email</h1>
-    <div ws-replace="Subject"></div>
-    <div ws-replace="Body"></div>
+    <div ws-attr="EmailActive">
+        <h1>Email</h1>
+        <div ws-replace="Subject"></div>
+        <div ws-replace="Body"></div>
+    </div>
 </div>
 
 <div ws-children-template="ApplyNowTemplate">
-    <h3>Apply now</h3>
-    <div ws-replace="JobName"></div>
-    <div ws-replace="UserEmail"></div>
-    <button ws-onclick="ApplyNowClick">Apply now</button>
-    <h3>Employer</h3>
-    <div ws-replace="Company"></div>
-    <div ws-replace="Gender"></div>
-    <div ws-replace="Degree"></div>
-    <div ws-replace="FirstName"></div>
-    <div ws-replace="LastName"></div>
-    <div ws-replace="Street"></div>
-    <div ws-replace="Postcode"></div>
-    <div ws-replace="City"></div>
-    <div ws-replace="Email"></div>
-    <div ws-replace="Phone"></div>
-    <div ws-replace="MobilePhone"></div>
-    <button ws-onclick="ApplyNowClick">Apply now</button>
+    <div ws-attr="ApplyNowActive">
+        <h3>Apply now</h3>
+        <div ws-replace="JobName"></div>
+        <div ws-replace="UserEmail"></div>
+        <button ws-onclick="ApplyNowClick">Apply now</button>
+        <h3>Employer</h3>
+        <div ws-replace="Company"></div>
+        <div ws-replace="Gender"></div>
+        <div ws-replace="Degree"></div>
+        <div ws-replace="FirstName"></div>
+        <div ws-replace="LastName"></div>
+        <div ws-replace="Street"></div>
+        <div ws-replace="Postcode"></div>
+        <div ws-replace="City"></div>
+        <div ws-replace="Email"></div>
+        <div ws-replace="Phone"></div>
+        <div ws-replace="MobilePhone"></div>
+        <button ws-onclick="ApplyNowClick">Apply now</button>
+    </div>
 </div>
 
 <div ws-children-template="UserValuesTemplate">
-    <h3>User values</h3>
-    <div ws-replace="Degree"></div>
-    <div ws-replace="Gender"></div>
-    <div ws-replace="FirstName"></div>
-    <div ws-replace="LastName"></div>
-    <div ws-replace="Street"></div>
-    <div ws-replace="Postcode"></div>
-    <div ws-replace="City"></div>
-    <div ws-replace="Email"></div>
-    <div ws-replace="Phone"></div>
-    <div ws-replace="MobilePhone"></div>
+    <div ws-attr="UserValuesActive">
+        <h3>User values</h3>
+        <div ws-replace="Degree"></div>
+        <div ws-replace="Gender"></div>
+        <div ws-replace="FirstName"></div>
+        <div ws-replace="LastName"></div>
+        <div ws-replace="Street"></div>
+        <div ws-replace="Postcode"></div>
+        <div ws-replace="City"></div>
+        <div ws-replace="Email"></div>
+        <div ws-replace="Phone"></div>
+        <div ws-replace="MobilePhone"></div>
+    </div>
 </div>
 
 <div ws-children-template="LoginTemplate">
-    <h3>Login</h3>
-    <div ws-replace="Email"></div>
-    <div ws-replace="Password"></div>
-    <button ws-onclick="Submit">Login</button>
+    <div ws-attr="LoginActive">
+        <h3>Login</h3>
+        <div ws-replace="Email"></div>
+        <div ws-replace="Password"></div>
+        <button ws-onclick="Submit">Login</button>
+    </div>
 </div>
 
 <div ws-children-template="RegisterTemplate">
-    <h3>Register</h3>
-    <div ws-replace="Email"></div>
-    <div ws-replace="Password"></div>
-    <button ws-onclick="Submit">Register</button>
+    <div ws-attr="RegisterActive">
+        <h3>Register</h3>
+        <div ws-replace="Email"></div>
+        <div ws-replace="Password"></div>
+        <button ws-onclick="Submit">Register</button>
+    </div>
 </div>
 
 <div ws-children-template="ChangePasswordTemplate">
-    <h3>Change password</h3>
-    <div ws-replace="Password"></div>
-    <button ws-onclick="Submit">Change password</button>
+    <div ws-attr="ChangePasswordActive">
+        <h3>Change password</h3>
+        <div ws-replace="Password"></div>
+        <button ws-onclick="Submit">Change password</button>
+    </div>
 </div>
 
 <div ws-children-template="ForgotPasswordTemplate">
-    <h3>Change password</h3>
-    <div ws-replace="Email"></div>
-    <button ws-onclick="Submit">Send new password link</button>
+    <div ws-attr="ForgotPasswordActive">
+        <h3>Change password</h3>
+        <div ws-replace="Email"></div>
+        <button ws-onclick="Submit">Send new password link</button>
+    </div>
 </div>
 
 <div ws-children-template="ChangeEmailTemplate">
-    <h3>Change email</h3>
-    <div ws-replace="Email"></div>
-    <button ws-onclick="Submit">Change your email address</button>
+    <div ws-attr="ChangeEmailActive">
+        <h3>Change email</h3>
+        <div ws-replace="Email"></div>
+        <button ws-onclick="Submit">Change your email address</button>
+    </div>
+</div>
+
+<div ws-children-template="ResendConfirmEmailEmailTemplate">
+    <div ws-attr="ResendConfirmEmailEmailActive">
+        <h3>Send confirmation email again</h3>
+        <button ws-onclick="Submit">Send confirmation email to ${Email}</button>
+    </div>
+</div>
+
+<div ws-children-template="LogoutTemplate">
+    <div ws-attr="LogoutActive">
+        <h3>Logout</h3>
+        <button ws-onclick="Logout">Logout</button>
+    </div>
+</div>
+
+<div ws-children-template="MainbarLoginDivLoggedInUser">
+    <button ws-onclick="Click">${LoggedInUserInitial}</button>
+</div>
+
+<div ws-children-template="MainbarLoginDivGuest">
+    ${GuestType}
+    <br />
+    <button ws-onclick="CallToActionClick">${CallToActionText}</button>
+
 </div>
 
 <div ws-template="InputField" class="form-group bottom-distanced">

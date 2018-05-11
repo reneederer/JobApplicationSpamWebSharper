@@ -21,11 +21,14 @@
     <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js"></script>
     <!--script src="https://apis.google.com/js/platform.js" async defer></script-->
     <style>
+        .sidebarItemActive {
+            display: none;
+        }
         .isActive {
             background-color: red;
         }
         .vis {
-            background-color: green;
+            background-color: blue;
         }
         .modal1 {
             display: block;
@@ -48,7 +51,7 @@
             margin-top: 10px;
         }
 
-        .btnLikeLink1 {
+        .sidebarItem {
             background: inherit !important;
             color: inherit;
             border: none;
@@ -130,9 +133,14 @@
 <body style="background-color:white">
     <nav class="navbar navbar-expand-md" style="background-color: #595553; border-bottom: solid 1px #DDDDDD; min-height:60px; margin-bottom: 10px">
         <div style="width: 100%">
-            <div style="color: red; background-color:yellow; float: right; width: 20%">hallo welt</div>
-            <div style="background-color: green; float:left; max-width: 200px">
-                <a href="#"><b>www.bewerbungsspam.d</b></a>
+            <div style="color: red; background-color:yellow; float: right; min-width: 20%; height: 100%">
+                <div style="float: right">
+                    <div ws-replace="MainbarLoginDiv">
+                    </div>
+                </div>
+            </div>
+            <div style="background-color: powderblue; float:left; height: 100%">
+                <a href="#"><b>www.bewerbungsspam.de</b></a>
             </div>
         </div>
     </nav>
@@ -145,12 +153,12 @@
                             <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
                         </div>
                         <div id="navbarSupportedContent" class="sidebar-navbar-collapse navbar-collapse collapse">
-                            <ul id="divSidebarMenu" style="padding-left: 0;list-style-type: none">
-                                <li><button class="btnLikeLink1" ws-onclick="sidebarMenu_sentApplications_click">Sent Applications</button></li>
-                                <li><button class="btnLikeLink1" ws-onclick="sidebarMenu_email_click">Email</button></li>
-                                <li><button class="btnLikeLink1" ws-onclick="sidebarMenu_setUserValues_click">Set user values</button></li>
-                                <li><button class="btnLikeLink1" ws-onclick="sidebarMenu_applyNow_click">Apply now</button></li>
-                                <li><button class="btnLikeLink1" ws-onclick="sidebarMenu_login_click">Login</button></li>
+                            <ul id="divSidebarMenu" style="padding-left: 0; list-style-type: none">
+                                <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuSentApplicationsClick">Sent Applications</a></li>
+                                <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuDocumentsAndFilesClick">Application documents</a></li>
+                                <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuUserValuesClick">User values</a></li>
+                                <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuEmailClick">Email</a></li>
+                                <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuApplyNowClick">Apply now</a></li>
                             </ul>
                         </div>
                     </nav>

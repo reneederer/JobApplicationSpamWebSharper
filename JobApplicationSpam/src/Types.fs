@@ -137,7 +137,6 @@ module Types =
           phone = ""
           mobilePhone = ""
         }
-    type UserId = int
     type User = 
         | LoggedInUser of UserValues
         | Guest of UserValues
@@ -146,10 +145,10 @@ module Types =
                 match this with
                 | LoggedInUser userValues -> userValues
                 | Guest userValues -> userValues
-            member this.Values(userValues) =
+            member this.Values(newUserValues) =
                 match this with
-                | LoggedInUser userValues -> LoggedInUser userValues
-                | Guest userValues -> Guest userValues
+                | LoggedInUser _ -> LoggedInUser newUserValues
+                | Guest _ -> Guest newUserValues
 
     type SentApplicationStatus =
     | NotYetSent = 1
