@@ -23,6 +23,19 @@ type State =
       changeEmail : ChangeEmail
       sentApplicationsModalValues : SentApplication
     }
+
+[<JavaScript>]
+module Url =
+    let getParameters (url : string) =
+        let parameterString = url.Substring(url.IndexOf("?") + 1)
+        let parameters = parameterString.Split([|'&'|])
+        [ for parameter in parameters do
+            match parameter.Split([|'='|]) with
+            | [| x1; x2 |] -> yield (x1, x2)
+            | _ -> yield ("", "")
+        ] |> Map.ofList
+
+
 [<JavaScript>]
 module List =
     let rec removeFirst (f : 'a -> bool) xs =
@@ -85,6 +98,7 @@ module List =
 module Client =
     open System.Net.Http
     open System
+    open System.Collections.Generic
 
     type Templates = Templating.Template<"templates/Templates.html">
     type MainTemplate = Templating.Template<"templates/Main.html">
@@ -372,9 +386,11 @@ module Client =
         state.Value <- { state.Value with user = user }
         stateRefs.mainbarLoginDiv.Value <- getMainbarLoginDiv state.Value.user
         stateRefs.activeSidebarItems.Value <- ["DocumentsAndFiles"]
+        stateRefs.mainbarLoginDiv.Value <- getMainbarLoginDiv user
 
-    let Main () =
-        let ajax (method: string) (url: string) (formData : FormData) : Async<string> =
+    let main () =
+
+        let ajax (method: string) (url: string) (formData : obj) : Async<string> =
             Async.FromContinuations
                 (fun (ok, ko, _) ->
                     JQuery.Ajax(
@@ -431,18 +447,58 @@ module Client =
                 | Failure msg -> JS.Alert msg
                 | Error -> JS.Alert("Sorry, an error occurred")
             }
-        let oSessionGuid = Cookies.Get("sessionGuid")
-        if oSessionGuid |> Optional.isDefined then
+        match Cookies.Get "sessionGuid" with
+        | Optional.Defined sessionGuid ->
+            JS.Alert "sessionGuid found"
             async {
-                let! rLogin = Server.loginWithSessionGuid oSessionGuid.Value
+                let! rLogin = Server.loginWithSessionGuid sessionGuid
                 match rLogin with
                 | Ok user ->
                     setUser user
-                    do! loadDocuments ()
-                    do! loadSentApplications()
+                    let parameters = Url.getParameters JS.Window.Location.Href
+                    parameters
+                    |> Map.tryFind "activeSidebarItems"
+                    |> Option.iter (fun divs ->
+                        stateRefs.activeSidebarItems.Value <-
+                            (divs.Split [|','|] |> List.ofArray)
+                    )
+
+                    match parameters |> Map.tryFind "email", parameters |> Map.tryFind "confirmEmailGuid" with
+                    | Some email, Some confirmEmailGuid ->
+                        JS.Alert "email and guid parameters found"
+                        let! rIsPasswordSet = Server.isPasswordSet ()
+                        let! rIsEmailConfirmed = Server.isEmailConfirmed ()
+                        match rIsPasswordSet, rIsEmailConfirmed with
+                        | Ok true, Ok true ->
+                            JS.Alert "true, true"
+                            do! loadDocuments ()
+                            do! loadSentApplications()
+                        | Ok true, Ok false ->
+                            JS.Alert "true, false"
+                            let! rConfirmEmail = Server.setConfirmEmailGuidToNone email confirmEmailGuid
+                            match rConfirmEmail with
+                            | Ok () ->
+                                do! loadDocuments ()
+                                do! loadSentApplications()
+                            | Failure msg -> JS.Alert msg
+                            | Error -> JS.Alert "Sorry, an error occurred"
+                        | Ok false, Ok true ->
+                            JS.Alert "false, true"
+                            stateRefs.activeSidebarItems.Value <- ["SetPasswordForFirstTime"]
+                        | Ok false, Ok false ->
+                            JS.Alert "false, false"
+                            stateRefs.activeSidebarItems.Value <- ["SetPasswordForFirstTime"]
+                            JS.Alert "hier!!jfds"
+                        | Failure msg, _ -> JS.Alert msg
+                        | _, Failure msg -> JS.Alert msg
+                        | Error, _
+                        | _, Error -> JS.Alert "Sorry, an error occurred"
+                    | _ -> ()
                 | Failure _ -> JS.Alert("Failed to log you in")
                 | Error -> JS.Alert("Sorry, an error occurred")
             } |> Async.Start
+        | Optional.Undefined ->
+            JS.Alert "no sessionGuid found"
         let sentApplicationsTemplate =
             Templates.SentApplicationsTemplate()
                 .SentApplications(stateRefs.sentApplications.View.DocSeqCached(fun (sentApplication : SentApplication) ->
@@ -504,7 +560,7 @@ module Client =
                                     |> Async.Start
                                 )
                                 .MoveUp(fun _ ->
-                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun page -> page.Name() = filePage.name)
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun p -> p.Name() = filePage.name)
                                     async {
                                         let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
                                         return ()
@@ -512,12 +568,26 @@ module Client =
                                     |> Async.Start
                                 )
                                 .MoveDown(fun _ ->
-                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun page -> page.Name() = filePage.name)
+                                    stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun p -> p.Name() = filePage.name)
                                     async {
                                         let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
                                         return ()
                                     }
                                     |> Async.Start
+                                )
+                                .Download(fun () ->
+                                    async {
+                                        JS.Alert filePage.name
+                                        //let! _ = ajax "GET" "/Download?filename=hallo.png" ""
+                                        let! rLinkGuid = Server.createDownloadLink filePage.path filePage.name
+                                        match rLinkGuid with
+                                        | Ok linkGuid ->
+                                            //let! _ = ajax "GET" ("/Download?linkGuid=" + linkGuid) ""
+                                            JS.Window.Location.Href <- ("/Download?linkGuid=" + linkGuid)
+                                            ()
+                                        | Failure msg -> JS.Alert msg
+                                        | Error -> JS.Alert "Sorry, an error occurred"
+                                    } |> Async.Start
                                 )
                                 .Doc()
                         | HtmlPage htmlPage ->
@@ -633,6 +703,7 @@ module Client =
                         match rRegister with
                         | Ok (sessionGuid, user) ->
                             Cookies.Set("sessionGuid", sessionGuid)
+                            JS.Alert "sessionGuid set!"
                             setUser user
                         | Failure msg -> JS.Alert(msg)
                         | Error -> JS.Alert("Sorry, an error occurred")
@@ -642,7 +713,7 @@ module Client =
                 .Doc()
         let changePasswordTemplate =
             Templates.ChangePasswordTemplate()
-                .Password(Templates.PasswordField().Id("changePasswordPassword").LabelText("New password").Var(stateRefs.register.password).Doc())
+                .Password(Templates.PasswordField().Id("changePasswordPassword").LabelText("New password").Var(stateRefs.changePassword.password).Doc())
                 .Submit(fun () ->
                     async {
                         let! rChangePassword = Server.changePassword state.Value.changePassword.password
@@ -669,7 +740,11 @@ module Client =
             Templates.LogoutTemplate()
                 .Logout(fun () ->
                     async {
-                        JS.Alert("unimplemented")
+                        let! rLogoutResult = Server.logout()
+                        match rLogoutResult with
+                        | Ok () -> ()
+                        | Failure msg -> JS.Alert msg
+                        | Error -> JS.Alert("Sorry, an error occurred")
                     } |> Async.Start
                 )
                 .LogoutActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "Logout")))
@@ -678,10 +753,15 @@ module Client =
             Templates.ResendConfirmEmailEmailTemplate()
                 .Submit(fun () ->
                     async {
-                        JS.Alert("unimplemented")
+                        let! rSendConfirmationEmail = Server.sendConfirmationEmailEmail ()
+                        match rSendConfirmationEmail with
+                        | Ok () -> ()
+                        | Failure msg -> JS.Alert msg
+                        | Error -> JS.Alert "Sorry, an error occurred"
                     } |> Async.Start
                 )
-                .ResendConfirmEmailEmailActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ResendConfirmationEmailEmail")))
+                .ResendConfirmEmailEmailActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ResendConfirmEmailEmail")))
+                .Email(stateRefs.user.email.View)
                 .Doc()
         let forgotPasswordTemplate =
             Templates.ForgotPasswordTemplate()
@@ -698,26 +778,69 @@ module Client =
                 )
                 .ForgotPasswordActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "ForgotPassword")))
                 .Doc()
+        let setPasswordForFirstTimeTemplate =
+            Templates.SetPasswordForFirstTimeTemplate()
+                .Password(Templates.PasswordField().Id("setPasswordForFirstTimePassword").LabelText("Password").Var(stateRefs.changePassword.password).Doc())
+                .Submit(fun () ->
+                    async {
+                        try
+                            if state.Value.changePassword.password <> ""
+                            then
+                                let parameters = Url.getParameters JS.Window.Location.Href
+                                match parameters |> Map.tryFind "email", parameters |> Map.tryFind "confirmEmailGuid" with
+                                | Some urlEmail, Some urlConfirmEmailGuid ->
+                                    let! rConfirmEmail, rLogin, rChangePassword =
+                                        Server.confirmEmail urlEmail urlConfirmEmailGuid state.Value.changePassword.password
+                                    match rConfirmEmail, rLogin, rChangePassword with
+                                    | Ok _, Ok (sessionGuid, user), Ok _ ->
+                                        JS.Alert "email confirmed!"
+                                        Cookies.Set("sessionGuid", sessionGuid)
+                                        setUser user
+                                        do! loadDocuments ()
+                                        do! loadSentApplications ()
+                                    | _ -> JS.Alert "Sorry, an error occurred"
+                                | _ ->
+                                    ()
+                        with
+                        | _ ->
+                            JS.Alert("Sorry, an error occurred.")
+                    } |> Async.Start
+                )
+                .SetPasswordForFirstTimeActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "SetPasswordForFirstTime")))
+                .Doc()
         MainTemplate()
             .Title("Bewerbungsspam")
             .Body(
-                Doc.Concat [sentApplicationsTemplate; documentsAndFilesTemplate; applyNowTemplate; emailTemplate; userValuesTemplate; loginTemplate; registerTemplate; logoutTemplate; changePasswordTemplate; changeEmailTemplate; forgotPasswordTemplate ]
+                Doc.Concat
+                  [ sentApplicationsTemplate
+                    documentsAndFilesTemplate
+                    applyNowTemplate
+                    emailTemplate
+                    userValuesTemplate
+                    loginTemplate
+                    registerTemplate
+                    logoutTemplate
+                    changePasswordTemplate
+                    changeEmailTemplate
+                    forgotPasswordTemplate
+                    setPasswordForFirstTimeTemplate
+                    resendConfirmationEmailEmailTemplate
+                  ]
             )
             .MainbarLoginDiv(Doc.EmbedView stateRefs.mainbarLoginDiv.View)
             .SidebarMenuApplyNowClick(
-                fun el ev -> stateRefs.activeSidebarItems.Value <- ["ApplyNow"]
+                fun () -> stateRefs.activeSidebarItems.Value <- ["ApplyNow"]
             )
             .SidebarMenuEmailClick(
-                fun el ev -> stateRefs.activeSidebarItems.Value <- ["Email"]
+                fun () -> stateRefs.activeSidebarItems.Value <- ["Email"]
             )
             .SidebarMenuSentApplicationsClick(
-                fun el ev -> stateRefs.activeSidebarItems.Value <- ["SentApplications"]
+                fun () -> stateRefs.activeSidebarItems.Value <- ["SentApplications"]
             )
             .SidebarMenuDocumentsAndFilesClick(
-                fun el ev -> stateRefs.activeSidebarItems.Value <- ["DocumentsAndFiles"]
+                fun () -> stateRefs.activeSidebarItems.Value <- ["DocumentsAndFiles"]
             )
             .SidebarMenuUserValuesClick(
-                fun el ev -> stateRefs.activeSidebarItems.Value <- ["UserValues"]
+                fun () -> stateRefs.activeSidebarItems.Value <- ["UserValues"]
             )
             .Doc()
-

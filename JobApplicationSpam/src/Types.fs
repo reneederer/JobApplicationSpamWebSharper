@@ -167,12 +167,19 @@ module Types =
           customVariables : string
           statusHistory : list<DateTime * int>
         }
+    type EmptyTextTagAction =
+    | Replace
+    | Ignore
+
+    [<CompilationRepresentation(CompilationRepresentationFlags.UseNullAsTrueValue)>]
     type Result<'a> =
     | Ok of 'a
     | Failure of string
     | Error
-
-    type EmptyTextTagAction =
-    | Replace
-    | Ignore
+    
+    let iter f r =
+        match r with
+        | Ok v ->
+            f r
+        | x -> x
 

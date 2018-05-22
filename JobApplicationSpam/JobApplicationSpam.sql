@@ -112,8 +112,8 @@ create table sentStatus ( id serial primary key,
 						  foreign key(sentStatusValueId) references sentStatusValue(id));
 create table link ( id serial primary key,
                     path text not null,
-					guid text not null,
-					name text not null);
+					name text not null,
+					guid text not null);
 
 insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date);
 insert into userValues (userId, email, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values(1, 'someMail@myMail.de', 'f', 'Prof.', 'Astrid', 'Meier', 'Blaustr. 4', '80921', 'Muenchen', 'mein Telefon', 'mein Handy');

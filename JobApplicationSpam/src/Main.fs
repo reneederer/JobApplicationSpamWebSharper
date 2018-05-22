@@ -13,25 +13,53 @@ open JobApplicationSpam.Server
 
 type EndPoint =
     | [<EndPoint "/">] Home
+    | [<EndPoint "/ConfirmEmail">] ConfirmEmail
+    | [<EndPoint "/LoginWithSessionGuid">] LoginWithSessionGuid
     | [<EndPoint "POST /Upload">] Upload of fileUpload : FileUpload
+    | [<EndPoint "/Download">] Download
 
 module Site =
     open WebSharper.UI.Next.Html
     open System.IO
     open log4net
     open System.Reflection
+    open WebSharper.Sitelets
 
     let log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
 
-    let HomePage ctx =
-        Content.Page({ Page.Default with Body = [ client <@ Client.Main() @> ]})
+    let homePage ctx =
+        Content.Page({ Page.Default with Body = [ client <@ Client.main() @> ]})
 
     [<Website>]
     let Main =
         Application.MultiPage (fun (ctx : Context<EndPoint>) endpoint ->
             match endpoint with
             | EndPoint.Home ->
-                HomePage ctx
+                homePage ctx
+            | EndPoint.Download ->
+                match ctx.Request.Get.["linkGuid"] with
+                | Some linkGuid ->
+                    match Server.useDownloadLink linkGuid |> Async.RunSynchronously with
+                    | Ok (filePath, fileName) when File.Exists filePath ->
+                        Content.File(filePath, true)
+                        |> Content.WithHeader "Content-Description" "File Transfer"
+                        |> Content.WithHeader "Content-Type" 
+                            (match Path.getExtensionNoDot filePath with
+                            | "pdf" -> "application/pdf"
+                            | "png" -> "image/png"
+                            | "gif" -> "image/gif"
+                            | "jpeg" -> "image/jpeg"
+                            | "odt" -> "application/odt"
+                            | _ -> "Application/pdf"
+                            )
+                        |> Content.WithHeader "Content-Disposition" ("attachment; filename=\"" + fileName + "\"")
+                        |> Content.WithHeader "Pragma" "public"
+                        |> Content.WithHeader "Connection" "Keep-Alive"
+                        |> Content.WithHeader "Expires" "0"
+                        |> Content.WithHeader "Cache-Control" "must-revalidate, post-check=0, pre-check=0"
+                        |> Content.WithHeader "Content-Transfer-Encoding" "binary"
+                    | _ -> Content.NotFound
+                | None -> Content.NotFound
             | EndPoint.Upload fileUpload ->
                 let findFreeFileName (file : string) (documentId : int) =
                     let fileNameWithoutExtension = Path.GetFileNameWithoutExtension(file)
@@ -39,7 +67,6 @@ module Site =
                     let existingFileNames =
                         let filePageNames = Server.getFilePageNames documentId |> Async.RunSynchronously
                         log.Debug (sprintf "filePageNames: %A" filePageNames)
-
                         filePageNames
                         |> List.filter (fun x -> Path.getExtensionNoDot(x) = extension)
                     let rec findFreeFileName' i =

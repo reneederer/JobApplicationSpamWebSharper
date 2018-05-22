@@ -8,6 +8,7 @@
                 <button ws-onclick="Delete">delete</button>
                 <button ws-onclick="MoveUp">MoveUp</button>
                 <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
+                <button ws-onclick="Download">Download</button>
             </div>
         </div>
         <form id="formId" method="post" action="/Upload">
@@ -121,6 +122,14 @@
     </div>
 </div>
 
+<div ws-children-template="SetPasswordForFirstTimeTemplate">
+    <div ws-attr="SetPasswordForFirstTimeActive">
+        <h3>Please set a password</h3>
+        <div ws-replace="Password"></div>
+        <button ws-onclick="Submit">Set password</button>
+    </div>
+</div>
+
 <div ws-children-template="ForgotPasswordTemplate">
     <div ws-attr="ForgotPasswordActive">
         <h3>Change password</h3>
@@ -176,7 +185,7 @@
 
 <div ws-template="PasswordField" class="form-group bottom-distanced">
     <label style="font-weight: bold" for="${Id}">${LabelText}</label>
-    <input type="password" style="min-height: ${MinHeight}" ws-var="Var" id="${Id}" name="${Id}" class="form-control" />
+    <input type="text" style="min-height: ${MinHeight}" ws-var="Var" id="${Id}" name="${Id}" class="form-control" />
     <!-- <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>-->
 </div>
 

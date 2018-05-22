@@ -72,22 +72,28 @@ module Internal =
     let private log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
 
     let sendEmail fromAddress fromName toAddress subject body (attachmentPathsAndNames : list<string * string>) =
-        use smtpClient = new SmtpClient(Settings.EmailServer, Settings.EmailPort)
-        smtpClient.EnableSsl <- true
-        smtpClient.Credentials <- new System.Net.NetworkCredential(Settings.EmailUsername, Settings.EmailPassword)
-        let fromAddress = new MailAddress(fromAddress, fromName, System.Text.Encoding.UTF8)
-        let toAddress = new MailAddress(toAddress)
-        let message = new MailMessage(fromAddress, toAddress, SubjectEncoding = System.Text.Encoding.UTF8, Subject = subject, Body = body, BodyEncoding = System.Text.Encoding.UTF8)
-        let attachments =
-            attachmentPathsAndNames
-            |> List.map (fun (filePath, fileName) ->
-                let attachment = new Attachment(filePath)
-                attachment.Name <- fileName
-                message.Attachments.Add(attachment)
-                attachment)
-        smtpClient.Send(message)
-        for attachment in attachments do
-            attachment.Dispose()
+        try
+            use smtpClient = new SmtpClient(Settings.EmailServer, Settings.EmailPort)
+            smtpClient.EnableSsl <- true
+            smtpClient.Credentials <- new System.Net.NetworkCredential(Settings.EmailUsername, Settings.EmailPassword)
+            let fromAddress = new MailAddress(fromAddress, fromName, System.Text.Encoding.UTF8)
+            let toAddress = new MailAddress(toAddress)
+            let message = new MailMessage(fromAddress, toAddress, SubjectEncoding = System.Text.Encoding.UTF8, Subject = subject, Body = body, BodyEncoding = System.Text.Encoding.UTF8)
+            let attachments =
+                attachmentPathsAndNames
+                |> List.map (fun (filePath, fileName) ->
+                    let attachment = new Attachment(filePath)
+                    attachment.Name <- fileName
+                    message.Attachments.Add(attachment)
+                    attachment)
+            smtpClient.Send(message)
+            for attachment in attachments do
+                attachment.Dispose()
+            Ok ()
+        with
+        | e ->
+            log.Error ("", e)
+            Error
 
     let toRootedPath path =
         if System.IO.Path.IsPathRooted path
@@ -224,6 +230,46 @@ module Internal =
         dbContext.SubmitUpdates()
         getUserSession().Logout() |> Async.RunSynchronously
         Ok ()
+    
+    let sendConfirmationEmailEmail' userId (dbContext : DB.dataContext) =
+        let userEmail, oConfirmEmailGuid =
+            query {
+                for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                where (user.Id = userId)
+                sortByDescending userValues.Id
+                select (userValues.Email, user.Confirmemailguid)
+                head
+            }
+        match oConfirmEmailGuid with
+        | Some confirmEmailGuid ->
+            sendEmail
+                "info@bewerbungsspam.de"
+                ""
+                userEmail
+                "Please confirm your email address"
+                (sprintf
+                    "Dear user,\r\n\r\nin order to prevent losing your data, please confirm your email address by visiting this link: https://www.bewerbungsspam.de/ConfirmEmail?email=%s&confirmEmailGuid=%s\r\n\r\nYour team from www.bewerbungsspam.de"
+                    userEmail
+                    confirmEmailGuid)
+                []
+        | None ->
+            Failure "Your email has already been confirmed"
+
+    let changePassword' password userId (dbContext : DB.dataContext) =
+        let user =
+            query {
+                for user in dbContext.Public.Users do
+                where (user.Id = userId)
+                select user
+                head
+            }
+        let salt = generateSalt 64
+        let hashedPassword = generateHashWithSalt password salt 1000 64
+        user.Salt <- salt
+        user.Password <- hashedPassword
+        dbContext.SubmitUpdates()
+        Ok ()
 
     let register' email password (dbContext : DB.dataContext) =
         let usersWithEmail =
@@ -241,7 +287,9 @@ module Internal =
             user.Confirmemailguid <- Some <| Guid.NewGuid().ToString("N")
             user.Createdon <- DateTime.Now
             user.Salt <- generateSalt 64
-            user.Password <- generateHashWithSalt password user.Salt 1000 64
+            if password = ""
+            then user.Password <- ""
+            else user.Password <- generateHashWithSalt password user.Salt 1000 64
             dbContext.SubmitUpdates()
 
             let userValues = dbContext.Public.Uservalues.Create()
@@ -305,10 +353,27 @@ module Internal =
             )
         Ok ()
 
+    let isPasswordSet' userId (dbContext : DB.dataContext) =
+        query {
+            for user in dbContext.Public.Users do
+            where (user.Id = userId)
+            select (Ok (user.Password <> ""))
+            headOrDefault
+        }
+
+    let isEmailConfirmed' userId (dbContext : DB.dataContext) =
+        query {
+            for user in dbContext.Public.Users do
+            where (user.Id = userId)
+            select (Ok (user.Confirmemailguid.IsNone))
+            headOrDefault
+        }
 
 [<AutoOpen>]
 module Server =
     open Internal
+    open System.Web.Security
+
     let private log = LogManager.GetLogger(MethodBase.GetCurrentMethod().GetType())
 
     [<Remote>]
@@ -417,14 +482,7 @@ module Server =
     [<Remote>]
     let changePassword password =
         async {
-            let! user = getCurrentUser ()
-            let changePassword'  (dbContext : DB.dataContext) =
-                let salt = generateSalt 64
-                let hashedPassword = generateHashWithSalt password salt 1000 64
-                user.Salt <- salt
-                user.Password <- hashedPassword
-                Ok ()
-            return! changePassword' |> withTransaction
+            return! changePassword' password |> withCurrentUser |> withTransaction
         }
     
     let getUserValues userId =
@@ -458,22 +516,69 @@ module Server =
         }
 
     [<Remote>]
-    let confirmEmail email confirmEmailGuid =
+    let setConfirmEmailGuidToNone email confirmEmailGuid =
         async {
-            let! (user, userValues) = getCurrentUserAndUserValues ()
-            if userValues.Email = email
-            then
+            let userAndUserValues =
+                (fun (dbContext : DB.dataContext) ->
+                    query {
+                        for user in dbContext.Public.Users do
+                        join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                        where (  user.Confirmemailguid.IsSome
+                              && user.Confirmemailguid.Value = confirmEmailGuid && userValues.Email = email)
+                        sortByDescending userValues.Id
+                        select (user, userValues)
+                    }
+                ) |> readDB |> Async.RunSynchronously
+            match userAndUserValues |> List.ofSeq with
+            | [user, userValues] ->
                 match user.Confirmemailguid with
                 | None -> return Failure "Your email has already been confirmed."
                 | Some guid when guid = confirmEmailGuid ->
-                    let setConfirmEmailGuidToNone (user : DB.dataContext.``public.usersEntity``) (dbContext : DB.dataContext) =
-                        user.Confirmemailguid <- None
+                    let setConfirmEmailGuidToNone' (user : DB.dataContext.``public.usersEntity``) (dbContext : DB.dataContext) =
+                        (query {
+                            for dbUser in dbContext.Public.Users do
+                            where (dbUser.Id = user.Id)
+                        }) |> Seq.iter (fun user -> user.Confirmemailguid <- None)
+                        log.Debug (sprintf "confirmemailguid set to none %i %i" user.Id userValues.Id)
+                        dbContext.SubmitUpdates()
                         Ok ()
-                    return! setConfirmEmailGuidToNone user |> withTransaction
+                    return! setConfirmEmailGuidToNone' user |> withTransaction
                 | _ ->
                     return Failure "Your email could not be confirmed."
-            else return Failure "Your email could not be confirmed."
+            | _ ->
+                return Failure "Your email could not be confirmed."
         }
+    
+    [<Remote>]
+    let isPasswordSet () =
+        Internal.isPasswordSet' |> withCurrentUser |> readDB
+
+    [<Remote>]
+    let isEmailConfirmed () =
+        Internal.isEmailConfirmed' |> withCurrentUser |> readDB
+
+    [<Remote>]
+    let confirmEmail email confirmEmailGuid password =
+        let dbContext = DB.GetDataContext()
+        let userId = 
+            query {
+                for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                where (userValues.Email = email)
+                sortByDescending (userValues.Id)
+                select (user.Id)
+                head
+            }
+        let rSetConfirmEmailGuidToNone = setConfirmEmailGuidToNone email confirmEmailGuid |> Async.RunSynchronously
+        log.Debug (sprintf "%A" rSetConfirmEmailGuidToNone)
+        let rChangePassword = changePassword' password userId (DB.GetDataContext())
+        log.Debug (sprintf "%A" rChangePassword)
+        let rLogin = loginWithEmailAndPassword email password |> Async.RunSynchronously
+        log.Debug (sprintf "%A" rLogin)
+        async {
+            return rSetConfirmEmailGuidToNone, rLogin, rChangePassword
+        }
+
 
     [<Remote>]
     let getDocuments () =
@@ -485,18 +590,18 @@ module Server =
                         maxBy userValues.Id
                     }
                 log.Debug (string userValuesId)
-                let documentIdsAndNames =
+                let documentValues =
                     query {
                         for user in dbContext.Public.Users do
                         join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
                         join document in dbContext.Public.Document on (userValues.Id = document.Uservaluesid)
                         where (user.Id = userId)
                         //sortBy document.Name
-                        select (document.Id, document.Name)
+                        select (document.Id, document.Name, document.Emailsubject, document.Emailbody, document.Jobname, document.Customvariables)
                     }
-                log.Debug (sprintf "%A" documentIdsAndNames)
+                log.Debug (sprintf "%A" documentValues)
                 let documents =
-                    [ for (documentId, documentName) in documentIdsAndNames do
+                    [ for (documentId, documentName, emailSubject, emailBody, jobName, customVariables) in documentValues do
                         let pageIds =
                             query {
                                 for page in dbContext.Public.Page do
@@ -535,10 +640,10 @@ module Server =
                           { name = documentName
                             pages = pages
                             id = documentId
-                            customVariables = ""
-                            jobName = ""
-                            emailSubject = ""
-                            emailBody = ""
+                            customVariables = customVariables
+                            jobName = jobName
+                            emailSubject = emailSubject
+                            emailBody = emailBody
                           }
                     ] |> List.sortBy (fun x -> x.name)
                 match documents with
@@ -638,9 +743,13 @@ module Server =
         async {
             let predefinedVariables =
                 [ ("$firma", employer.company)
+                  ("$firmaName", employer.company)
                   ("$firmaStrasse", employer.street)
                   ("$firmaPlz", employer.postcode)
                   ("$firmaStadt",employer.city)
+                  ("$chefGeschlecht", employer.gender.ToString())
+                  ("$geehrter", match employer.gender with Gender.Male -> "geehrter" | Gender.Female -> "geehrte" | Gender.Unknown -> "")
+                  ("$chefAnrede", match employer.gender with Gender.Male -> "Herr" | Gender.Female -> "Frau" | Gender.Unknown -> "")
                   ("$chefGeschlecht", employer.gender.ToString())
                   ("$chefTitel", employer.degree)
                   ("$chefVorname", employer.firstName)
@@ -652,14 +761,16 @@ module Server =
                   ("$meinGeschlecht", userValues.gender.ToString())
                   ("$meinTitel", userValues.degree)
                   ("$meinVorname", userValues.firstName)
+                  ("$meinNachname", userValues.lastName)
                   ("$meinName", userValues.lastName)
                   ("$meineStrasse", userValues.street)
                   ("$meinePlz", userValues.postcode)
                   ("$meinePostleitzahl", userValues.postcode)
                   ("$meineStadt", userValues.city)
                   ("$meineEmail", userValues.email)
-                  ("$meineTelefonnr", userValues.phone)
+                  ("$meineTelefonnr_", userValues.phone)
                   ("$meineMobilnr", userValues.mobilePhone)
+                  ("$meineMobilnr_", userValues.mobilePhone)
                   ("$tagHeute", sprintf "%02i" DateTime.Today.Day)
                   ("$monatHeute", sprintf "%02i" DateTime.Today.Month)
                   ("$jahrHeute", sprintf "%04i" DateTime.Today.Year)
@@ -761,7 +872,6 @@ module Server =
             dbDocument.Jobname <- document.jobName
             dbDocument.Name <- document.name
             dbDocument.Uservaluesid <- newUserValues.Id
-
             dbContext.SubmitUpdates()
 
             //add pages
@@ -834,14 +944,13 @@ module Server =
             let mergedPdfFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N") + ".pdf")
             if pdfFilePaths <> [] then FileConverter.mergePdfs pdfFilePaths mergedPdfFilePath
             let replaceValuesMap = getReplaceValuesMap employer (user.Values()) document |> Async.RunSynchronously
-            //sendEmail
-            //    (user.Values().email)
-            //    (user.Values().firstName + user.Values().lastName)
-            //    (user.Values().email)
-            //    (FileConverter.replaceInString document.emailSubject replaceValuesMap)
-            //    (FileConverter.replaceInString document.emailBody replaceValuesMap)
-            //    [mergedPdfFilePath, "Bewerbung_" + (user.Values().firstName) + "_" + (user.Values().lastName) + ".pdf" ]
-            Ok ()
+            sendEmail
+                (user.Values().email)
+                (user.Values().firstName + " " + user.Values().lastName)
+                (employer.email)
+                (FileConverter.replaceInString document.emailSubject replaceValuesMap)
+                (FileConverter.replaceInString document.emailBody replaceValuesMap)
+                [mergedPdfFilePath, "Bewerbung_" + (user.Values().firstName) + "_" + (user.Values().lastName) + ".pdf" ]
         applyNow' |> withCurrentUser |> withTransaction
 
     [<Remote>]
@@ -907,17 +1016,38 @@ module Server =
             log.Debug(sentApplicationsWithStatusHistory |> List.length |> string)
             Ok sentApplicationsWithStatusHistory
         getSentApplications' |> withCurrentUser |> readDB
+    
+    [<Remote>]
+    let sendConfirmationEmailEmail () =
+        Internal.sendConfirmationEmailEmail' |> withCurrentUser |> readDB
          
-    //[<Remote>]
-    //let createLink filePath name =
-    //    async {
-    //        let linkGuid = Guid.NewGuid().ToString("N")
-    //        return 
-    //            Database.insertLink filePath name linkGuid
-    //            |> withTransaction
-    //            |> (fun _ -> linkGuid)
-    //    }
+    [<Remote>]
+    let createDownloadLink filePath name =
+        async {
+            let linkGuid = Guid.NewGuid().ToString("N")
+            let createDownloadLink' (dbContext : DB.dataContext) =
+                let _ = dbContext.Public.Link.``Create(guid, name, path)``(linkGuid, name, Path.Combine(Settings.DataDir, filePath))
+                dbContext.SubmitUpdates()
+                Ok linkGuid
+            return! createDownloadLink' |> withTransaction
+        }
 
+    [<Remote>]
+    let useDownloadLink linkGuid =
+        async {
+            let useDownloadLink' (dbContext : DB.dataContext) =
+                let links =
+                    query {
+                        for link in dbContext.Public.Link do
+                        where (link.Guid = linkGuid)
+                    }
+                let rPathAndName = links.Select(fun link -> Ok (link.Path, link.Name)).FirstOrDefault()
+                links |> Seq.iter (fun link -> link.Delete())
+                dbContext.SubmitUpdates()
+                rPathAndName
+
+            return! useDownloadLink' |> withTransaction
+        }
     //[<Remote>]
     //let tryGetPathAndNameByLinkGuid linkGuid =
     //    async {
