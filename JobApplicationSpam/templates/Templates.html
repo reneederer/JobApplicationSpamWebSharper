@@ -1,21 +1,21 @@
 ﻿<div ws-children-template="DocumentsAndFilesTemplate">
     <div ws-attr="DocumentsAndFilesActive">
-        <h3>Your application documents</h3>
+        <h3>Application documents</h3>
         <div ws-replace="SelectDocument"></div>
         <div ws-hole="DocumentPages">
             <div ws-template="DocumentFile">
                 <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
                 <button ws-onclick="Delete">
-                    <i class="fas fa-trash-alt"></i>
+                    <i class="fa fa-trash-alt"></i>
                 </button>
                 <button ws-onclick="MoveUp">
-                    <i class="fas fa-arrow-up"></i>
+                    <i class="fa fa-arrow-up"></i>
                 </button>
                 <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">
-                    <i class="fas fa-arrow-down"></i>
+                    <i class="fa fa-arrow-down"></i>
                 </button>
                 <button ws-onclick="Download">
-                    <i class="fas fa-download"></i>
+                    <i class="fa fa-download"></i>
                 </button>
             </div>
         </div>
@@ -27,7 +27,7 @@
 
 <div ws-children-template="SentApplicationsTemplate">
     <div ws-attr="SentApplicationsActive">
-        <h3>Your sent applications:</h3>
+        <h3>Sent applications:</h3>
         <div id="myModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>

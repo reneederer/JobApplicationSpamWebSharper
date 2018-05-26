@@ -7,7 +7,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-signin-client_id" content="611050726514-ktutu8ts96fpligq7b0rq4q80km6l28p.apps.googleusercontent.com">
     <title>${Title}</title>
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+<!--    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
+    -->
 
 
 
@@ -15,10 +16,17 @@
 
 
 
+    <style ws-replace="style"></style>
     <script ws-replace="scripts"></script>
     <style>
+        .collapsing {
+            -webkit-transition: none;
+            transition: none;
+            display: none;
+        }
         .menuItem {
             font-size: 25px;
+            font-weight: bold;
             padding-top: 15px;
             margin-top: 0px;
             margin-bottom: 0px;
@@ -42,19 +50,14 @@
             margin-right: 0;
         }
 
+        #sidebar-expanded {
+            width: 300px;
+        }
+
         #sidebar-container {
             min-height: 100vh;
             background-color: #333;
             padding: 0;
-        }
-
-        /* Sidebar sizes when expanded and expanded */
-        .sidebar-expanded {
-            width: 230px;
-        }
-
-        .sidebar-collapsed {
-            width: 60px;
         }
 
         /* Menu item*/
@@ -238,78 +241,97 @@
                 </div>
             </div>
         </nav>
-        <!--
-            <div class="" style="background-color:lawngreen">
-                <nav class="navbar navbar-light navbar-expand-lg" role="navigation">
-                    <div id="navbarSupportedContent" style="width:38.2%; background-color:lightblue" class="sidebar-navbar-collapse navbar-collapse collapse">
-                        <ul id="divSidebarMenu" style="padding-left: 0; list-style-type: none">
-                            <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuSentApplicationsClick">Sent Applications</a></li>
-                            <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuDocumentsAndFilesClick">Application documents</a></li>
-                            <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuUserValuesClick">User values</a></li>
-                            <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuEmailClick">Email</a></li>
-                            <li><a href="#" class="sidebarItem" ws-onclick="SidebarMenuApplyNowClick">Apply now</a></li>
-                        </ul>
-                    </div>
-                    <div class="navbar-header">
-                        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
-                    </div>
-                </nav>
-    -->
 
+        <div id="main-section">
+            <div id="navbarSupportedContent" class="topNavigation row" style="width:100%">
+                <ul class="nav nav-bar block float-left">
+                    <li class="nav-item menuItem">
+                        <a href="#" ws-onclick="SidebarMenuSentApplicationsClick">
+                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
+                        </a>
+                    </li>
+                    <li class="nav-item menuItem">
+                        <a href="#" ws-onclick="SidebarMenuDocumentsAndFilesClick">
+                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
+                        </a>
+                    </li>
+                    <li class="nav-item menuItem">
+                        <a href="#" ws-onclick="SidebarMenuUserValuesClick">
+                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
+                        </a>
+                    </li>
+                    <li class="nav-item menuItem">
+                        <a href="#" ws-onclick="SidebarMenuEmailClick">
+                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
+                        </a>
+                    </li>
+                    <li class="nav-item menuItem">
+                        <a href="#" ws-onclick="SidebarMenuApplyNowClick">
+                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
+                        </a>
+                    </li>
+                </ul>
+                <ul class="nav nav-bar float-right block">
+                    <li class="nav-item menuItem">
+                        <a href="#"  class="d-md-none" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="true">
+                            <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-bars"></i></div>
+                        </a>
+                    </li>
+                </ul>
 
-        <div class="has-sidebar sidebar-expanded" id="main-section">
-            <div id="navbarSupportedContent" class="sidebar" style="width:auto;float:left">
+            </div>
+            <div id="navbarSupportedContent" class="sidebar" style="float:left">
                 <ul id="divSidebarMenu" class="nav nav-sidebar d-flex flex-column">
                     <li class="nav-item menuItem">
                         <a href="#" ws-onclick="SidebarMenuSentApplicationsClick">
-                            <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+                            <div class="row" style="margin:0px; padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Item 2</div>
+                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
+                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Sent applications</div>
                             </div>
                         </a>
                     </li>
                     <li class="nav-item menuItem">
                         <a href="#" ws-onclick="SidebarMenuDocumentsAndFilesClick">
-                            <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+                            <div class="row" style="margin:0px; padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Item 2</div>
+                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
+                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Documents and files</div>
                             </div>
                         </a>
                     </li>
                     <li class="nav-item menuItem">
                         <a href="#" ws-onclick="SidebarMenuUserValuesClick">
-                            <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+                            <div class="row" style="margin:0px; padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
                                 <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Item 2</div>
+                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Your data</div>
                             </div>
                         </a>
                     </li>
                     <li class="nav-item menuItem">
                         <a href="#" ws-onclick="SidebarMenuEmailClick">
-                            <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+                            <div class="row" style="margin:0px; padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Item 2</div>
+                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
+                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Email</div>
                             </div>
                         </a>
                     </li>
                     <li class="nav-item menuItem">
                         <a href="#" ws-onclick="SidebarMenuApplyNowClick">
-                            <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+                            <div class="row" style="margin:0px; padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Item 2</div>
+                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
+                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Apply now</div>
                             </div>
                         </a>
                     </li>
-                    <li class="nav-item menuItem d-md-none">
-                        <a href="#" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="true">
-                            <div class="row" style="background-color:lightblue;margin:0; padding:0px">
+                    <li class="nav-item menuItem">
+                        <a href="#"  class="d-md-none" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="true">
+                            <div class="row" style="margin:0px;padding:0px">
                                 <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-arrow-left"></i></div>
+                                <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-arrow-right"></i></div>
                                 <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered" style="">Collapse</div>
                             </div>
 
@@ -318,6 +340,9 @@
 
 
                 </ul>
+            </div>
+            <div style="padding-bottom: 100px; float:left">
+                <div ws-replace="Body"></div>
             </div>
         </div>
 
@@ -328,9 +353,6 @@
 
 
 
-        <div style="float:left; padding-bottom: 100px">
-            <div ws-replace="Body"></div>
-        </div>
     </div>
 </body>
 </html>

@@ -7,7 +7,7 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "JobApplicationSpam", "JobAp
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DownloadRequired3rdPartyPrograms", "DownloadRequired3rdPartyPrograms\DownloadRequired3rdPartyPrograms.fsproj", "{8AD6E59A-28BA-4E83-8193-1E8E4724B333}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishJobApplicationSpam1", "PublishJobApplicationSpam\PublishJobApplicationSpam1.fsproj", "{E8EB06E7-CD2F-489A-8190-A4A7442CB43B}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PublishJobApplicationSpam", "PublishJobApplicationSpam\PublishJobApplicationSpam.fsproj", "{E8EB06E7-CD2F-489A-8190-A4A7442CB43B}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DatabaseBackup", "DatabaseBackup\DatabaseBackup.fsproj", "{64FE77C8-530F-4130-99CD-19B850A8F548}"
 EndProject
