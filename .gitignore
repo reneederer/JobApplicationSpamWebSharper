@@ -13,6 +13,9 @@
 *.log.2
 Web.config
 PublishJobApplicationSpam/App.config
+*.js
+
+
 DatabaseBackup/App.config
 DownloadRequired3rdPartyPrograms/App.config
 
@@ -30,6 +33,7 @@ bld/
 [Bb]in/
 [Oo]bj/
 [Ll]og/
+[Ss]cripts/
 
 # Visual Studio 2015/2017 cache/options directory
 .vs/

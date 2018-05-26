@@ -9,6 +9,7 @@ open WebSharper.JQuery
 open JobApplicationSpam.Server
 open Types
 
+
 type State =
     { documents : list<Document>
       sentApplications : list<SentApplication>

@@ -5,10 +5,18 @@
         <div ws-hole="DocumentPages">
             <div ws-template="DocumentFile">
                 <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
-                <button ws-onclick="Delete">delete</button>
-                <button ws-onclick="MoveUp">MoveUp</button>
-                <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">MoveDown</button>
-                <button ws-onclick="Download">Download</button>
+                <button ws-onclick="Delete">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+                <button ws-onclick="MoveUp">
+                    <i class="fas fa-arrow-up"></i>
+                </button>
+                <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">
+                    <i class="fas fa-arrow-down"></i>
+                </button>
+                <button ws-onclick="Download">
+                    <i class="fas fa-download"></i>
+                </button>
             </div>
         </div>
         <form id="formId" method="post" action="/Upload">
@@ -23,7 +31,8 @@
         <div id="myModal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <p>Company: ${Company}<br />
+                <p>
+                    Company: ${Company}<br />
                 </p>
             </div>
         </div>
@@ -188,5 +197,15 @@
     <input type="text" style="min-height: ${MinHeight}" ws-var="Var" id="${Id}" name="${Id}" class="form-control" />
     <!-- <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>-->
 </div>
+
+<li class="nav-item menuItem">
+    <a href="#">
+        <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
+            <div class="item-label block paddedLeft15 verticallyCentered"></div>
+            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa ${Class}"></i></div>
+            <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">${Title}</div>
+        </div>
+    </a>
+</li>
 
 

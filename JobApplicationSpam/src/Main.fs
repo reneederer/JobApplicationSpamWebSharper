@@ -58,6 +58,7 @@ module Site =
                         |> Content.WithHeader "Expires" "0"
                         |> Content.WithHeader "Cache-Control" "must-revalidate, post-check=0, pre-check=0"
                         |> Content.WithHeader "Content-Transfer-Encoding" "binary"
+                    | Ok (filePath, fileName) -> Content.NotFound
                     | _ -> Content.NotFound
                 | None -> Content.NotFound
             | EndPoint.Upload fileUpload ->
@@ -102,7 +103,7 @@ module Site =
                     | Some path -> path
 
                 let convertAndSaveTemporarily (file : IPostedFile) =
-                    let tmpFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N"), file.FileName)
+                    let tmpFilePath = Path.Combine(Settings.TmpDir, Guid.NewGuid().ToString("N"), file.FileName)
                     Directory.CreateDirectory (Path.GetDirectoryName tmpFilePath) |> ignore
                     file.SaveAs tmpFilePath
                     match Path.getExtensionNoDot file.FileName with
@@ -116,7 +117,7 @@ module Site =
                     | s -> failwith "unsupported format" + s
 
                 let getSaveToUserDir userId =
-                    Path.Combine(Settings.DataDir, "user", string userId)
+                    Path.Combine(Settings.UserDir, string userId)
                 
                 try
                     let file = ctx.Request.Files |> Seq.item 0
@@ -125,17 +126,17 @@ module Site =
                         Content.Json (Failure "Unrecognized file type")
                     | _ ->
                         let tmpFilePath = convertAndSaveTemporarily file
-                        let saveFilePath = getFilePath_testIfIdenticalFileExists tmpFilePath [] (Path.Combine(Settings.DataDir, "user", string fileUpload.userId))
+                        let saveFilePath = getFilePath_testIfIdenticalFileExists tmpFilePath [] (Path.Combine(Settings.UserDir, string fileUpload.userId))
                         let saveFileName = findFreeFileName tmpFilePath fileUpload.documentId
                         //use transactionScope = new TransactionScope()
                         let fullSaveFilePath = Path.Combine("user", string fileUpload.userId, saveFilePath)
-                        match Server.addFilePage saveFileName fullSaveFilePath fileUpload.documentId |> Async.RunSynchronously with
+                        match Server.addFilePage saveFileName saveFilePath fileUpload.documentId |> Async.RunSynchronously with
                         | Ok _ ->
                             let saveToUserDir =  getSaveToUserDir fileUpload.userId
                             if not <| Directory.Exists saveToUserDir
                             then Directory.CreateDirectory saveToUserDir |> ignore
                             File.Move(tmpFilePath, Path.Combine(saveToUserDir, saveFilePath))
-                            Content.Json (Ok (fullSaveFilePath, saveFileName, 0))
+                            Content.Json (Ok (saveFilePath, saveFileName, 0))
                             //transactionScope.Complete()
                         | _ ->
                             Content.Json (Failure "Adding file page failed.")

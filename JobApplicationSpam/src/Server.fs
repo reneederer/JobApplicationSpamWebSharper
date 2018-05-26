@@ -95,11 +95,6 @@ module Internal =
             log.Error ("", e)
             Error
 
-    let toRootedPath path =
-        if System.IO.Path.IsPathRooted path
-        then path
-        else System.IO.Path.Combine(Settings.DataDir, path)
-
     let withTransaction (f : DB.dataContext -> Result<'a>) =
         async {
             let dbContext = DB.GetDataContext()
@@ -401,12 +396,14 @@ module Server =
             | _ ->
                 log.Error "UserId was not an integer"
                 failwith "UserId was not an integer"
-    
-    let toOption (o : Option<'a>) = 
-        if o.IsSome
-        then Some o.Value
-        else None
 
+    let toRootedPath path =
+        let toRootedPath' userId path () =
+            if System.IO.Path.IsPathRooted path
+            then path
+            else System.IO.Path.Combine(Settings.UserDir, string userId, path)
+        (toRootedPath' |> withCurrentUser) path ()
+    
     [<Remote>]
     let loginWithEmailAndPassword (email : string) (password : string) =
         async { return loginWithEmailAndPassword' email password (DB.GetDataContext()) }
@@ -703,7 +700,6 @@ module Server =
     let saveAsNewDocument (document : Document) userValuesId =
         saveAsNewDocument' document userValuesId |> withTransaction
     
-    [<Remote>]
     let addFilePage fileName filePath (documentId : int) =
         let addFilePage' (dbContext : DB.dataContext) =
             let pageIndex =
@@ -727,7 +723,6 @@ module Server =
             Ok ()
         addFilePage' |> withTransaction
 
-    [<Remote>]
     let getFilePageNames documentId =
         let getFilePageNames documentId (dbContext : DB.dataContext) =
             query {
@@ -798,7 +793,7 @@ module Server =
             (document : Document) =
             async {
                 try
-                    let tmpDirectory = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N"))
+                    let tmpDirectory = Path.Combine(Settings.TmpDir, Guid.NewGuid().ToString("N"))
                     let! replaceValuesMap = getReplaceValuesMap employer userValues document
                     Directory.CreateDirectory(tmpDirectory) |> ignore
                     if filePath.ToLower().EndsWith(".odt")
@@ -941,7 +936,7 @@ module Server =
                     | Unknown s ->
                         failwith <| "Unknown file type: " + s
                 ]
-            let mergedPdfFilePath = Path.Combine(Settings.DataDir, "tmp", Guid.NewGuid().ToString("N") + ".pdf")
+            let mergedPdfFilePath = Path.Combine(Settings.TmpDir, Guid.NewGuid().ToString("N") + ".pdf")
             if pdfFilePaths <> [] then FileConverter.mergePdfs pdfFilePaths mergedPdfFilePath
             let replaceValuesMap = getReplaceValuesMap employer (user.Values()) document |> Async.RunSynchronously
             sendEmail
@@ -1023,14 +1018,12 @@ module Server =
          
     [<Remote>]
     let createDownloadLink filePath name =
-        async {
+        let createDownloadLink' userId (dbContext : DB.dataContext) =
             let linkGuid = Guid.NewGuid().ToString("N")
-            let createDownloadLink' (dbContext : DB.dataContext) =
-                let _ = dbContext.Public.Link.``Create(guid, name, path)``(linkGuid, name, Path.Combine(Settings.DataDir, filePath))
-                dbContext.SubmitUpdates()
-                Ok linkGuid
-            return! createDownloadLink' |> withTransaction
-        }
+            let _ = dbContext.Public.Link.``Create(guid, name, path)``(linkGuid, name, toRootedPath filePath)
+            dbContext.SubmitUpdates()
+            Ok linkGuid
+        createDownloadLink' |> withCurrentUser |> withTransaction
 
     [<Remote>]
     let useDownloadLink linkGuid =
