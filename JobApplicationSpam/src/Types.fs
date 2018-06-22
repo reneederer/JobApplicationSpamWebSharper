@@ -17,7 +17,7 @@ module Types =
     type DB =
         SqlDataProvider<
             DatabaseVendor = FSharp.Data.Sql.Common.DatabaseProviderTypes.POSTGRESQL,
-            ConnectionString = "Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspam; Enlist=true",
+            ConnectionString = ConnectionStrings.Procuction,
             ResolutionPath = "bin",
             IndividualsAmount = 1000,
             UseOptionTypes = true>

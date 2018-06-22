@@ -143,6 +143,7 @@
     <Content Include="templates\Main.html" />
     <Content Include="templates\Templates.html" />
     <None Include="JobApplicationSpam.sql" />
+    <Compile Include="src\ConnectionStrings.fs" />
     <Compile Include="src\Types.fs" />
     <Compile Include="src\FileConverter.fs" />
     <Compile Include="src\Variables.fs" />

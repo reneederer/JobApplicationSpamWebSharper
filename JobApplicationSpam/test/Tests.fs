@@ -31,7 +31,7 @@ type MyTests ()  =
         let options : FSharp.Data.Sql.Transactions.TransactionOptions =
                 { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted
                   Timeout = TimeSpan.FromSeconds 100000. }
-        DB.GetDataContext("Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest; Enlist=true", options, 100000)
+        DB.GetDataContext(ConnectionStrings.Test, options, 100000)
 
     [<Fact>]
     member this.``login with correct email and password and confirmed email should set the loggedInUser to (Some userId) and return a LoggedInUser``() =

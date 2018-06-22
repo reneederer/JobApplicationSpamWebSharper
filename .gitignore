@@ -18,6 +18,7 @@ PublishJobApplicationSpam/App.config
 
 DatabaseBackup/App.config
 DownloadRequired3rdPartyPrograms/App.config
+JobApplicationSpam/src/ConnectionStrings.fs
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
