@@ -2,23 +2,30 @@
     <div ws-attr="DocumentsAndFilesActive">
         <h3>Application documents</h3>
         <div ws-replace="SelectDocument"></div>
-        <div ws-hole="DocumentPages">
+        <div style="padding-bottom:20px"></div>
+        <div ws-hole="DocumentPages" id="DocumentPages" style="padding-bottom: 15px">
             <div ws-template="DocumentFile">
-                <button ws-onclick="Click" ws-attr="IsActive">${Name}</button>
-                <button ws-onclick="Delete">
-                    <i class="fa fa-trash-alt"></i>
-                </button>
-                <button ws-onclick="MoveUp">
-                    <i class="fa fa-arrow-up"></i>
-                </button>
-                <button ws-onclick="MoveDown" ws-attr="MoveDownVisible">
-                    <i class="fa fa-arrow-down"></i>
-                </button>
-                <button ws-onclick="Download">
-                    <i class="fa fa-download"></i>
-                </button>
+                <div class="paddedRight20 float-left" style="overflow: hidden; min-width:calc(100%-250px);display: block; padding-bottom: 10px">${Name}</div>
+                <div class="float-left" style="display: inline; width:250px; min-width:250px; max-width:250px;padding-bottom: 30px;background-color:yellowgreen">
+                    <div class="float-right text-right" style="background-color:lightyellow;width:100%; overflow:hidden">
+                        <a href="#" class="paddedRight20" ws-onclick="Delete">
+                            <i class="fa fa-trash"></i>
+                        </a>
+                        <a href="#" class="paddedRight20" ws-onclick="MoveUp">
+                            <i class="fa fa-arrow-up"></i>
+                        </a>
+                        <a href="#" class="paddedRight20" ws-onclick="MoveDown" ws-attr="MoveDownVisible">
+                            <i class="fa fa-arrow-down"></i>
+                        </a>
+                        <a href="#" ws-onclick="Download">
+                            <i class="fa fa-download"></i>
+                        </a>
+                    </div>
+                </div>
+                <div style="display: block; clear:both"></div>
             </div>
         </div>
+        <div class="d-none d-lg-block" style="clear: both"></div>
         <form id="formId" method="post" action="/Upload">
             <input type="file" name="file" id="file" ws-onchange="UploadFile" />
         </form>
@@ -59,8 +66,8 @@
     </div>
 </div>
 
-<div ws-children-template="EmailTemplate">
-    <div ws-attr="EmailActive">
+<div ws-children-template="EmailTemplate" class="form-group" style="overflow:hidden; width:100%">
+    <div ws-attr="EmailActive" style="overflow:hidden;width:100%">
         <h1>Email</h1>
         <div ws-replace="Subject"></div>
         <div ws-replace="Body"></div>
@@ -102,6 +109,18 @@
         <div ws-replace="Email"></div>
         <div ws-replace="Phone"></div>
         <div ws-replace="MobilePhone"></div>
+    </div>
+</div>
+
+<div ws-children-template="CustomVariablesTemplate">
+    <div ws-attr="CustomVariablesActive">
+        <h3>Custom variables</h3>
+        <div ws-hole="CustomVariables" style="padding-bottom: 15px">
+            <div ws-template="CustomVariable" class="form-group bottom-distanced">
+                <textarea ws-var="Text" class="form-control" style="height: 200px; display: block"></textarea>
+            </div>
+        </div>
+        <button ws-onclick="AddVariableClick">New variable</button>
     </div>
 </div>
 
@@ -181,7 +200,7 @@
 </div>
 
 <div ws-template="InputField" class="form-group bottom-distanced">
-    <label style="font-weight: bold" for="${Id}">${LabelText}</label>
+    <label class="d-block" style="font-weight: bold" for="${Id}">${LabelText}</label>
     <input ws-var="Var" id="${Id}" name="${Id}" class="form-control" />
     <!-- <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>-->
 </div>
@@ -197,15 +216,4 @@
     <input type="text" style="min-height: ${MinHeight}" ws-var="Var" id="${Id}" name="${Id}" class="form-control" />
     <!-- <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>-->
 </div>
-
-<li class="nav-item menuItem">
-    <a href="#">
-        <div class="row" style="background-color:lightblue; margin:0px; padding:0px">
-            <div class="item-label block paddedLeft15 verticallyCentered"></div>
-            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa ${Class}"></i></div>
-            <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">${Title}</div>
-        </div>
-    </a>
-</li>
-
 

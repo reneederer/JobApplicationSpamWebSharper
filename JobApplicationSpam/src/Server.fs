@@ -181,8 +181,7 @@ module Internal =
                     where (userValues.Id = userValuesId)
                     select
                         ( user.Id, user.Password, user.Salt, user.Confirmemailguid,
-                          { id = userValuesId
-                            gender = Gender.FromString userValues.Gender
+                          { gender = Gender.FromString userValues.Gender
                             degree = userValues.Degree
                             firstName = userValues.Firstname
                             lastName = userValues.Lastname
@@ -303,8 +302,7 @@ module Internal =
             getUserSession().LoginUser(string user.Id) |> Async.RunSynchronously
             Ok ( sessionGuid, 
                  Guest
-                   { id = userValues.Id
-                     gender = Gender.FromString userValues.Gender
+                   { gender = Gender.FromString userValues.Gender
                      degree = userValues.Degree
                      firstName = userValues.Firstname
                      lastName = userValues.Lastname
@@ -320,12 +318,17 @@ module Internal =
 
     let saveAsNewDocument' (document : Document) userValuesId (dbContext : DB.dataContext) =
         let dbDocument = dbContext.Public.Document.Create()
-        dbDocument.Customvariables <- document.customVariables
         dbDocument.Jobname <- document.jobName
         dbDocument.Name <- document.name
         dbDocument.Emailsubject <- document.emailSubject
         dbDocument.Emailbody <- document.emailBody
         dbDocument.Uservaluesid <- userValuesId
+        dbContext.SubmitUpdates()
+
+        for customVariable in document.customVariables do
+            let dbCustomVariable = dbContext.Public.Customvariable.Create()
+            dbCustomVariable.Text <- customVariable.text
+            dbCustomVariable.Documentid <- dbDocument.Id
         dbContext.SubmitUpdates()
 
         document.pages
@@ -419,8 +422,7 @@ module Server =
                 where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
                 select
                     ( user.Confirmemailguid, 
-                      { id = userValues.Id
-                        gender = Gender.FromString userValues.Gender
+                      { gender = Gender.FromString userValues.Gender
                         degree = userValues.Degree
                         firstName = userValues.Firstname
                         lastName = userValues.Lastname
@@ -594,11 +596,11 @@ module Server =
                         join document in dbContext.Public.Document on (userValues.Id = document.Uservaluesid)
                         where (user.Id = userId)
                         //sortBy document.Name
-                        select (document.Id, document.Name, document.Emailsubject, document.Emailbody, document.Jobname, document.Customvariables)
+                        select (document.Id, document.Name, document.Emailsubject, document.Emailbody, document.Jobname)
                     }
                 log.Debug (sprintf "%A" documentValues)
                 let documents =
-                    [ for (documentId, documentName, emailSubject, emailBody, jobName, customVariables) in documentValues do
+                    [ for (documentId, documentName, emailSubject, emailBody, jobName) in documentValues do
                         let pageIds =
                             query {
                                 for page in dbContext.Public.Page do
@@ -633,11 +635,17 @@ module Server =
                                     )
                             } |> List.ofSeq
                         let pages = (filePages @ htmlPages) |> List.sortBy fst |> List.map snd
+                        let customVariables =
+                            query {
+                                for customVariable in dbContext.Public.Customvariable do
+                                where (customVariable.Documentid = documentId)
+                                select customVariable.Text
+                            } |> List.ofSeq
                         yield
                           { name = documentName
                             pages = pages
                             id = documentId
-                            customVariables = customVariables
+                            customVariables = customVariables |> List.mapi (fun i v -> {index = i; text = v})
                             jobName = jobName
                             emailSubject = emailSubject
                             emailBody = emailBody
@@ -646,14 +654,13 @@ module Server =
                 match documents with
                 | [] ->
                     let dbDocument = dbContext.Public.Document.Create()
-                    dbDocument.Customvariables <- ""
                     dbDocument.Emailbody <- "Hi there!"
                     dbDocument.Emailsubject <- "Application as farmer"
                     dbDocument.Jobname <- "Farmer"
                     dbDocument.Name <- "Farmer"
                     dbDocument.Uservaluesid <- userValuesId
                     dbContext.SubmitUpdates()
-                    Ok [{ name = "Farmer"; pages = []; jobName = "Farmer"; emailSubject = "Application as farmer"; emailBody = "Hi there!"; id = dbDocument.Id; customVariables = "" }]
+                    Ok [{ name = "Farmer"; pages = []; jobName = "Farmer"; emailSubject = "Application as farmer"; emailBody = "Hi there!"; id = dbDocument.Id; customVariables = [] }]
                 | _ -> Ok documents
         getDocuments' |> withCurrentUser |> readDB
     
@@ -861,12 +868,18 @@ module Server =
                     where (doc.Id = document.id)
                 }).Single()
             let dbDocument = dbContext.Public.Document.Create()
-            dbDocument.Customvariables <- document.customVariables
             dbDocument.Emailbody <- document.emailBody
             dbDocument.Emailsubject <- document.emailSubject
             dbDocument.Jobname <- document.jobName
             dbDocument.Name <- document.name
             dbDocument.Uservaluesid <- newUserValues.Id
+            dbContext.SubmitUpdates()
+
+            //add variables
+            for customVariable in document.customVariables do
+                let dbCustomVariable = dbContext.Public.Customvariable.Create()
+                dbCustomVariable.Text <- customVariable.text
+                dbCustomVariable.Documentid <- dbDocument.Id
             dbContext.SubmitUpdates()
 
             //add pages
@@ -975,8 +988,7 @@ module Server =
                                 mobilePhone = employer.Mobilephone
                               }
                             userValues =
-                              { id = userValues.Id
-                                gender = Gender.FromString(userValues.Gender)
+                              { gender = Gender.FromString(userValues.Gender)
                                 degree = userValues.Degree
                                 firstName = userValues.Firstname
                                 lastName = userValues.Lastname
@@ -990,7 +1002,7 @@ module Server =
                             emailSubject = document.Emailsubject
                             emailBody = document.Emailbody
                             jobName = document.Jobname
-                            customVariables = document.Customvariables
+                            customVariables = [] //TODO
                             statusHistory = []
                           }
                         )

@@ -8,6 +8,7 @@ drop table if exists htmlPage cascade;
 drop table if exists filePage cascade;
 drop table if exists page cascade;
 drop table if exists application cascade;
+drop table if exists customVariable;
 drop table if exists document cascade;
 drop table if exists htmlPageTemplate cascade;
 drop table if exists jobRequirement cascade;
@@ -60,14 +61,19 @@ create table htmlPageTemplate ( id serial primary key,
                                 name text unique not null,
 								odtPath text unique not null,
 								html text not null);
+
 create table document ( id serial primary key,
                         userValuesId int not null,
 						name text not null,
 						jobName text not null,
-						customVariables text not null,
 						emailSubject text not null,
 						emailBody text not null,
 						foreign key(userValuesId) references userValues(id));
+
+create table customVariable ( id serial primary key,
+                              text text not null,
+                              documentId int not null,
+                              foreign key(documentId) references document(id));
 
 create table page ( id serial primary key,
                     documentId int not null,
@@ -121,8 +127,8 @@ insert into userValues (userId, email, gender, degree, firstName, lastName, stre
 
 insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('741f5ukEhGVNSUlqZLz7YAgfHGR8wpzsoT5LqtYsESz7PxdUbyUOgLQFxafgQJ6iZ7H3VumrEjcLDzJ84wtIXA==', 'aQnjb/L1KEg285kjQKkHPy/kuNcJOWZRRziBi+CjtFximm0/7AFaBbwZC4WJXXkXCcW71CRtc4G9Oulajayd4A==', '7fb7ee1bda734c95bdfc78991cd0e5d0', null, current_date);
 insert into userValues (userId, email, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values(2, 'helmut@goerke.de', 'm', '', 'Helmut', 'Goerke', 'Raabstr. 24A', '90429', 'Nuernberg', '0911', '0151');
-insert into document(userValuesId, name, jobName, customVariables, emailSubject, emailBody) values( 1, 'welt', 'Fachinformatiker', '', 'subject1', 'body1');
-insert into document( userValuesId,name, jobName, customVariables, emailSubject, emailBody) values( 1, 'hallo', 'Test', '', 'subject2', 'body2');
+insert into document(userValuesId, name, jobName, emailSubject, emailBody) values( 1, 'welt', 'Fachinformatiker', 'subject1', 'body1');
+insert into document( userValuesId,name, jobName, emailSubject, emailBody) values( 1, 'hallo', 'Test', 'subject2', 'body2');
 insert into page(documentId, pageIndex) values(1, 2);
 insert into page(documentId, pageIndex) values(1, 1);
 insert into filePage(path, pageId, name) values('user/1/bewerbung_neu.odt', 1, 'datei 1');

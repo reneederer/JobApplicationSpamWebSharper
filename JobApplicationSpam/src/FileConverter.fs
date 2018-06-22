@@ -10,7 +10,7 @@ module Path =
     let getExtensionNoDot filePath =
         match Path.GetExtension filePath with
         | "" -> ""
-        | s when s.StartsWith "."-> s.Substring(1)
+        | s when s.StartsWith "."-> s.Substring 1
         | s -> s
 
 module FileConverter =
@@ -18,6 +18,10 @@ module FileConverter =
     open System.Threading
     open PdfSharp.Pdf
     open PdfSharp.Pdf.IO
+    open PdfSharp.Pdf.Content
+    open PdfSharp.Forms
+    open PdfSharp.Pdf.Content.Objects
+    open System.Text
 
     let private log = log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().GetType())
 
@@ -26,7 +30,7 @@ module FileConverter =
             let directories = Directory.EnumerateDirectories(Path.Combine(path, currentDir))
             let xs =
                 [ for directory in directories do
-                    yield! applyRec' (Path.Combine(currentDir, Path.GetFileName(directory)))
+                    yield! applyRec' (Path.Combine(currentDir, Path.GetFileName directory))
                 ]
 
             let files = Directory.EnumerateFiles(Path.Combine(path, currentDir))
@@ -50,7 +54,7 @@ module FileConverter =
                         if replacedV = ""
                         then s.Replace(k1 + " ", "").Replace(k1, "")
                         else
-                            let replaceValue = System.Security.SecurityElement.Escape(replacedV)
+                            let replaceValue = System.Security.SecurityElement.Escape replacedV
                             s.Replace(k1, replaceValue)
                     replace state k v
                 )
@@ -137,4 +141,4 @@ module FileConverter =
                 outputDocument.AddPage page |> ignore
         outputDocument.Save outputPath
         log.Debug (sprintf "(pdfPaths = %A, outputPath = %s) = ()" pdfPaths outputPath)
-
+    

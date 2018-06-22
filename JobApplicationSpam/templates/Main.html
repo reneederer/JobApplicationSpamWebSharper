@@ -7,29 +7,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="google-signin-client_id" content="611050726514-ktutu8ts96fpligq7b0rq4q80km6l28p.apps.googleusercontent.com">
     <title>${Title}</title>
-<!--    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css">
-    -->
 
-
-
-
-
-
-
-    <style ws-replace="style"></style>
+    <style ws-replace="styles"></style>
     <script ws-replace="scripts"></script>
     <style>
+        #DocumentPages:nth-child(even) {
+            background-color:lightblue;
+        }
+        #DocumentPages:nth-child(odd) {
+            background-color:lightcoral;
+        }
+        .width40px {
+            width: 40px;
+            min-width: 40px;
+            max-width: 40px;
+        }
+        body {
+            font-size: 18px;
+        }
+        button {
+            min-width: 50px;
+        }
+        .paddedRight20 {
+            padding-right: 20px;
+            display: inline;
+        }
+        .horizontalMenu {
+            background: white;
+        }
+        .sticky {
+            position: fixed;
+            top: 0px;
+            width: 100%;
+        }
         .collapsing {
             -webkit-transition: none;
             transition: none;
             display: none;
         }
         .menuItem {
-            font-size: 25px;
+            font-size: 18px;
             font-weight: bold;
-            padding-top: 15px;
+            padding-bottom: 15px;
             margin-top: 0px;
             margin-bottom: 0px;
+        }
+        .horizontalMenuItem {
+            font-size: 18px;
+            font-weight: bold;
+            padding-right: 20px;
         }
 
         .paddedLeft15 {
@@ -45,85 +71,14 @@
             padding-top: 5px;
         }
 
-        #body-row {
-            margin-left: 0;
-            margin-right: 0;
-        }
-
-        #sidebar-expanded {
-            width: 300px;
-        }
-
-        #sidebar-container {
-            min-height: 100vh;
-            background-color: #333;
-            padding: 0;
-        }
-
-        /* Menu item*/
-        #sidebar-container .list-group a {
-            height: 50px;
-            color: white;
-        }
-
-        /* Submenu item*/
-        #sidebar-container .list-group .sidebar-submenu a {
-            height: 45px;
-            padding-left: 30px;
-        }
-
-        .sidebar-submenu {
-            font-size: 0.9rem;
-        }
-
-        /* Separators */
-        .sidebar-separator-title {
-            background-color: #333;
-            height: 35px;
-        }
-
-        .sidebar-separator {
-            background-color: #333;
-            height: 25px;
-        }
-
-        .logo-separator {
-            background-color: #333;
-            height: 60px;
-        }
-
-        /*
-        #sidebar-container .list-group .list-group-item[aria-expanded="false"] .submenu-icon::after {
-            content: " \f0d7";
-            font-family: FontAwesome;
-            display: inline;
-            text-align: right;
-            padding-left: 10px;
-        }
-
-        #sidebar-container .list-group .list-group-item[aria-expanded="true"] .submenu-icon::after {
-            content: " \f0da";
-            font-family: FontAwesome;
-            display: inline;
-            text-align: right;
-            padding-left: 10px;
-        }
-            */
-
-
-
-
-
         .sidebarItemActive {
             display: none;
         }
 
         .isActive {
-            background-color: red;
         }
 
         .vis {
-            background-color: blue;
         }
 
         .modal1 {
@@ -147,25 +102,11 @@
             margin-top: 10px;
         }
 
-        .sidebarItem {
-            background: inherit !important;
-            color: inherit;
-            border: none;
-            padding: 0 !important;
-            font: arial;
-            font-size: 16pt;
-            color: blue;
-            font-weight: bold;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-
         .btnLikeLink1:hover {
             border-bottom: 4px solid blue;
         }
 
         .page1 {
-            background-color: lightblue;
             display: block;
             width: 16.55cm; /*21 - 2.5 - 2.0*/
             font: Arial;
@@ -177,7 +118,6 @@
         }
 
         .page {
-            background-color: lightblue;
             display: block;
             width: 16.55cm; /*21 - 2.5 - 2.0*/
             height: 28.7cm; /*29.7 - 4.5 - 2.5*/
@@ -189,18 +129,6 @@
             /*margin-right: 1.0cm; /* 2.0 - 1.1*/
         }
 
-        .grow-input {
-            min-width: 20px !important;
-            max-width: 99.99% !important;
-            transition: width 0.25s;
-            margin-right: 0px;
-            padding: 0;
-            border: none;
-            height: 18px;
-            width: 150px;
-        }
-
-
         html {
             min-height: 100%;
         }
@@ -209,6 +137,7 @@
             margin-bottom: 60px;
             height: 100%;
             overflow: auto;
+            /*background-color: #3676bd;*/
         }
 
         .footer {
@@ -217,142 +146,138 @@
             width: 100%;
             height: 60px;
             margin-top: 50px;
-            background-color: #f5f5f5;
             display: none;
         }
 
-        .container .text-muted {
-            margin: 20px 0;
-        }
     </style>
 </head>
-<body style="background-color:white">
-    <div class="container main-content col-12 col-sm-12 col-md-10 col-lg-8 col-xl-8">
-        <nav class="navbar navbar-expand-md" style="background-color: #595553; border-bottom: solid 1px #DDDDDD; min-height:60px; margin-bottom: 10px">
+<body>
+    <div class="container main-content col-12 col-sm-12 col-md-12 col-lg-11 col-xl-10" style="background-color:lightgoldenrodyellow">
+        <nav class="navbar navbar-expand-lg" style="min-height:60px; margin-bottom: 10px">
             <div style="width: 100%">
-                <div style="color: red; background-color:yellow; float: right; min-width: 20%; height: 100%">
+                <div style="color: red; float: right; min-width: 20%; height: 100%">
                     <div style="float: right">
                         <div ws-replace="MainbarLoginDiv">
                         </div>
                     </div>
                 </div>
-                <div style="background-color: powderblue; float:left; height: 100%">
+                <div style="float:left; height: 100%">
                     <a href="#"><b>www.bewerbungsspam.de</b></a>
                 </div>
             </div>
         </nav>
 
-        <div id="main-section">
-            <div id="navbarSupportedContent" class="topNavigation row" style="width:100%">
-                <ul class="nav nav-bar block float-left">
-                    <li class="nav-item menuItem">
+        <div id="main-section" style="padding-top:40px">
+            <div id="horizontalMenu" class="horizontalMenu d-lg-none">
+                <ul class="nav float-left">
+                    <li class="nav-item horizontalMenuItem">
                         <a href="#" ws-onclick="SidebarMenuSentApplicationsClick">
-                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
+                            <div class="item-label block verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
                         </a>
                     </li>
-                    <li class="nav-item menuItem">
+                    <li class="nav-item horizontalMenuItem">
                         <a href="#" ws-onclick="SidebarMenuDocumentsAndFilesClick">
-                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
+                            <div class="item-label block verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
                         </a>
                     </li>
-                    <li class="nav-item menuItem">
+                    <li class="nav-item horizontalMenuItem">
                         <a href="#" ws-onclick="SidebarMenuUserValuesClick">
-                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
+                            <div class="item-label block verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
                         </a>
                     </li>
-                    <li class="nav-item menuItem">
+                    <li class="nav-item horizontalMenuItem">
                         <a href="#" ws-onclick="SidebarMenuEmailClick">
-                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
+                            <div class="item-label block verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
                         </a>
                     </li>
-                    <li class="nav-item menuItem">
+                    <li class="nav-item horizontalMenuItem">
                         <a href="#" ws-onclick="SidebarMenuApplyNowClick">
-                            <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
+                            <div class="item-label block verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
                         </a>
                     </li>
                 </ul>
-                <ul class="nav nav-bar float-right block">
-                    <li class="nav-item menuItem">
-                        <a href="#"  class="d-md-none" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="true">
-                            <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-bars"></i></div>
+                <ul class="nav float-right">
+                    <li class="nav-item horizontalMenuItem">
+                        <a href="#" class="d-lg-none" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="false">
+                            <div class="item-label block verticallyCentered float-right" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-bars"></i></div>
                         </a>
                     </li>
-                </ul>
-
-            </div>
-            <div id="navbarSupportedContent" class="sidebar" style="float:left">
-                <ul id="divSidebarMenu" class="nav nav-sidebar d-flex flex-column">
-                    <li class="nav-item menuItem">
-                        <a href="#" ws-onclick="SidebarMenuSentApplicationsClick">
-                            <div class="row" style="margin:0px; padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Sent applications</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li class="nav-item menuItem">
-                        <a href="#" ws-onclick="SidebarMenuDocumentsAndFilesClick">
-                            <div class="row" style="margin:0px; padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Documents and files</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li class="nav-item menuItem">
-                        <a href="#" ws-onclick="SidebarMenuUserValuesClick">
-                            <div class="row" style="margin:0px; padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Your data</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li class="nav-item menuItem">
-                        <a href="#" ws-onclick="SidebarMenuEmailClick">
-                            <div class="row" style="margin:0px; padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Email</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li class="nav-item menuItem">
-                        <a href="#" ws-onclick="SidebarMenuApplyNowClick">
-                            <div class="row" style="margin:0px; padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 d-md-none verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered">Apply now</div>
-                            </div>
-                        </a>
-                    </li>
-                    <li class="nav-item menuItem">
-                        <a href="#"  class="d-md-none" id="collapse-nav" data-target=".collapseOnSmall" data-toggle="collapse" aria-expanded="true">
-                            <div class="row" style="margin:0px;padding:0px">
-                                <div class="item-label block paddedLeft15 verticallyCentered"></div>
-                                <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i id="toggle-collapse" class="fa fa-arrow-right"></i></div>
-                                <div class="collapseOnSmall item-label collapse show block paddedRight15 verticallyCentered" style="">Collapse</div>
-                            </div>
-
-                        </a>
-                    </li>
-
-
                 </ul>
             </div>
-            <div style="padding-bottom: 100px; float:left">
+            <div class="" style="clear: both;width:100%">
+            <nav class="navbar-expand-lg" style="float:left; padding-right: 30px">
+                <div id="navbarSupportedContent" class="nav-sidebar collapseOnSmall collapse navbar-collapse" style="float:left;">
+                    <ul id="divSidebarMenu" class="navbar-nav d-flex flex-column">
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuSentApplicationsClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-list-ol"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Sent applications</div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuDocumentsAndFilesClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-file"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Documents and files</div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuUserValuesClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-user"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Your data</div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuCustomVariablesClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Custom variables</div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuEmailClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-at"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Email</div>
+                                </div>
+                            </a>
+                        </li>
+                        <li class="nav-item menuItem">
+                            <a href="#" ws-onclick="SidebarMenuApplyNowClick">
+                                <div class="row" style="margin:0px; padding:0px">
+                                    <div class="item-label block paddedLeft15 verticallyCentered"></div>
+                                    <div class="item-label block paddedRight15 verticallyCentered" style="min-width:31px;"><i class="fa fa-check-circle"></i></div>
+                                    <div class="item-label collapse show block verticallyCentered">Apply now</div>
+                                </div>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+            <div class="" style="overflow:auto;padding-bottom: 100px;">
                 <div ws-replace="Body"></div>
-            </div>
+            </div></div>
         </div>
-
-
-
-
-
-
-
-
     </div>
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
+    <br />
 </body>
 </html>

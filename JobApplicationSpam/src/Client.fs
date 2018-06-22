@@ -9,7 +9,6 @@ open WebSharper.JQuery
 open JobApplicationSpam.Server
 open Types
 
-
 type State =
     { documents : list<Document>
       sentApplications : list<SentApplication>
@@ -116,6 +115,7 @@ module Client =
           phone : IRef<string>
           mobilePhone : IRef<string>
         }
+
     type EmployerRefs =
         { company : IRef<string>
           gender : IRef<Gender>
@@ -167,15 +167,18 @@ module Client =
           changeEmail : ChangeEmailRefs
           activeSidebarItems : Var<list<string>>
           mainbarLoginDiv : Var<Doc>
+          customVariables : IRef<list<CustomVariable>>
+          customVariablesSaved : IRef<list<CustomVariable>>
         }
     let state : Var<State> =
         Var.Create
             { documents =
                 [
                   { pages =
-                        [FilePage {name = "AAA"; size = 0; path = ""}];
+                        [ FilePage {name = "Bewerbungsunterlagen.pdf"; size = 0; path = ""}
+                          FilePage {name = "Meine_ganz_tollen_Bewerbungsunterlagen.pdf"; size = 0; path = ""}];
                     name="Doc 1"
-                    customVariables = ""
+                    customVariables = []
                     jobName = "Fachinformatiker"
                     id = 1
                     emailSubject = ""
@@ -183,7 +186,7 @@ module Client =
                   }
                   { pages = [ FilePage {name = "XX"; size = 0; path = ""};  FilePage {name = "YY"; size = 0; path = ""};  FilePage {name = "ZZ"; size = 0; path = ""}];
                     name="Doc 2"
-                    customVariables = ""
+                    customVariables = []
                     jobName = "Fachinformatiker"
                     id = 2
                     emailSubject = ""
@@ -191,7 +194,7 @@ module Client =
                   }
                   { pages = [ FilePage {name = "D"; size = 0; path = ""};  FilePage {name = "E"; size = 0; path = ""};  FilePage {name = "F"; size = 0; path = ""}];
                     name="Doc 3"
-                    customVariables = ""
+                    customVariables = []
                     jobName = "Fachinformatiker"
                     id = 3
                     emailSubject = ""
@@ -199,7 +202,7 @@ module Client =
                   }
                   { pages = [ FilePage {name = "u"; size = 0; path = ""};  FilePage {name = "v"; size = 0; path = ""}];
                     name="Doc 4"
-                    customVariables = ""
+                    customVariables = []
                     jobName = "Fachinformatiker"
                     id = 4
                     emailSubject = ""
@@ -223,7 +226,7 @@ module Client =
                     statusHistory = []
                     emailSubject = ""
                     emailBody = ""
-                    customVariables = ""
+                    customVariables = []
                   }
             }
     
@@ -324,6 +327,19 @@ module Client =
           activeDocumentName = state.Lens (fun s -> s.activeDocumentName) (fun s v -> { s with activeDocumentName = v })
           activeSidebarItems = Var.Create [ "DocumentsAndFiles" ]
           mainbarLoginDiv = Var.CreateWaiting ()
+          customVariables = Var.Create []
+          customVariablesSaved =
+              state.Lens
+                  (fun s ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      let xs = List.mapAtOrDefault documentIndex (fun (x : Document) -> x.customVariables) [] s.documents
+                      xs)
+                  (fun s (v : list<CustomVariable>) ->
+                      let documentIndex = s.documents |> List.findIndex (fun x -> x.name = s.activeDocumentName)
+                      if List.length s.documents <= documentIndex
+                      then s
+                      else
+                        { s with documents = List.replace documentIndex {s.documents.[documentIndex] with customVariables = v} s.documents })
         }
 
     let getMainbarLoginDiv user =
@@ -342,7 +358,7 @@ module Client =
                 .CallToActionClick(fun () ->
                     stateRefs.activeSidebarItems.Value <- ["Login"; "Register" ]
                 )
-                .Doc()
+              .Doc()
         | Guest values ->
             Templates.MainbarLoginDivGuest()
                 .GuestType("Temporary user")
@@ -390,6 +406,20 @@ module Client =
         stateRefs.mainbarLoginDiv.Value <- getMainbarLoginDiv user
 
     let main () =
+        let horizontalMenuEl = Var.CreateWaiting()
+        let horizontalMenuElOffsetTop = Var.Create 0
+        JQuery(JS.Document).Ready(
+            fun () ->
+                horizontalMenuEl.Value <- JS.Document.GetElementById "horizontalMenu"
+                horizontalMenuElOffsetTop.Value <- horizontalMenuEl.Value?offsetTop
+        ) |> ignore
+        JS.Window.Onscroll <-
+            fun evt ->
+                if JS.Window?pageYOffset >= horizontalMenuElOffsetTop.Value
+                    then
+                        horizontalMenuEl.Value?classList?add("sticky")
+                    else
+                        horizontalMenuEl.Value?classList?remove("sticky")
 
         let ajax (method: string) (url: string) (formData : obj) : Async<string> =
             Async.FromContinuations
@@ -548,14 +578,12 @@ module Client =
                         | FilePage filePage ->
                             Templates.DocumentFile()
                                 .Name(filePage.name)
-                                .IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
-                                .Click(fun () ->
-                                    stateRefs.activeFileName.Value <- filePage.name
-                                )
+                                //.IsActive(Attr.DynamicClass "isActive" state.View (fun (s : State) -> s.activeFileName = page.Name()))
+                                //.Click(fun () -> stateRefs.activeFileName.Value <- filePage.name)
                                 .Delete(fun _ ->
                                     stateRefs.pages.Value <- stateRefs.pages.Value |> List.removeFirst (fun page -> page.Name() = filePage.name)
                                     async {
-                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        //let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
                                         return ()
                                     }
                                     |> Async.Start
@@ -563,7 +591,7 @@ module Client =
                                 .MoveUp(fun _ ->
                                     stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveUp (fun p -> p.Name() = filePage.name)
                                     async {
-                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        //let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
                                         return ()
                                     }
                                     |> Async.Start
@@ -571,7 +599,7 @@ module Client =
                                 .MoveDown(fun _ ->
                                     stateRefs.pages.Value <- stateRefs.pages.Value |> List.moveDown (fun p -> p.Name() = filePage.name)
                                     async {
-                                        let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
+                                        //let! _ = Server.saveAsNewDocument (currentDocument()) (state.Value.user.Values().id)
                                         return ()
                                     }
                                     |> Async.Start
@@ -668,6 +696,25 @@ module Client =
                 .Email(Templates.InputField().Id("userEmail").LabelText("Email").Var(stateRefs.user.email).Doc())
                 .Phone(Templates.InputField().Id("userPhone").LabelText("Phone").Var(stateRefs.user.phone).Doc())
                 .MobilePhone(Templates.InputField().Id("userMobilePhone").LabelText("MobilePhone").Var(stateRefs.user.mobilePhone).Doc())
+                .Doc()
+        let customVariablesTemplate = 
+            Templates.CustomVariablesTemplate()
+                .CustomVariablesActive(Attr.DynamicClass "sidebarItemActive" stateRefs.activeSidebarItems.View (fun s -> not (s |>  List.contains "CustomVariables")))
+                .CustomVariables(
+                    stateRefs.customVariables.View.DocSeqCached(fun (customVariable : CustomVariable) ->
+                        Templates.CustomVariable()
+                            .Text(
+                                stateRefs.customVariablesSaved.Lens
+                                    (fun s -> s |> List.pick (fun x -> if x.index = customVariable.index then Some x.text else None))
+                                    (fun s v -> s |> List.map (fun x -> if x.index = customVariable.index then { x with text = v} else x))
+                            )
+                            .Doc()
+                    )
+                )
+                .AddVariableClick(fun () ->
+                    stateRefs.customVariables.Value <- stateRefs.customVariables.Value @ [ {index = stateRefs.customVariables.Value.Length; text = ""} ]
+                    stateRefs.customVariablesSaved.Value <- stateRefs.customVariablesSaved.Value @ [ {index = stateRefs.customVariablesSaved.Value.Length; text = ""} ]
+                )
                 .Doc()
         let emailTemplate =
             Templates.EmailTemplate()
@@ -818,6 +865,7 @@ module Client =
                     applyNowTemplate
                     emailTemplate
                     userValuesTemplate
+                    customVariablesTemplate
                     loginTemplate
                     registerTemplate
                     logoutTemplate
@@ -843,5 +891,8 @@ module Client =
             )
             .SidebarMenuUserValuesClick(
                 fun () -> stateRefs.activeSidebarItems.Value <- ["UserValues"]
+            )
+            .SidebarMenuCustomVariablesClick(
+                fun () -> stateRefs.activeSidebarItems.Value <- ["CustomVariables"]
             )
             .Doc()

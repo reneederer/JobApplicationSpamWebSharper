@@ -11,25 +11,41 @@ open Xunit
 
 module Server = Server.Internal
 
+
 type InitTest () =
     let options : FSharp.Data.Sql.Transactions.TransactionOptions =
-            { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadUncommitted
+            { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted
               Timeout = TimeSpan.FromSeconds 100000. }
     member val scope =
-        new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = System.Transactions.IsolationLevel.ReadUncommitted, Timeout = TimeSpan.FromSeconds 10000.)) with get, set
-    member val dbContext = DB.GetDataContext(options)
+        new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted)) with get, set
     interface IDisposable with
         member this.Dispose() =
             Server.getUserSession().Logout() |> Async.RunSynchronously
+            this.scope.Complete()
             this.scope <-
-                new TransactionScope(TransactionScopeOption.RequiresNew, TransactionOptions(IsolationLevel = IsolationLevel.ReadUncommitted))
+                new TransactionScope(TransactionScopeOption.RequiresNew, TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted))
 
 type MyTests ()  =
     inherit InitTest()
+    let dbContext () =
+        let options : FSharp.Data.Sql.Transactions.TransactionOptions =
+                { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted
+                  Timeout = TimeSpan.FromSeconds 100000. }
+        let mutable m = None
+        let mutable i = 0
+        while m.IsNone || i < 10 do
+            try 
+                m <- Some <| DB.GetDataContext("Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest; Enlist=true", options, 100000)
+            with 
+            | _ -> ()
+            //System.Threading.Thread.Sleep 2000
+            i <- i + 1
+        m.Value
+
     [<Fact>]
     member this.``login with correct email and password and confirmed email should set the loggedInUser to (Some userId) and return a LoggedInUser``() =
         let actual =
-            match loginWithEmailAndPassword' "rene.ederer.nbg@gmail.com" "1234" (DB.GetDataContext()) with
+            match loginWithEmailAndPassword' "rene.ederer.nbg@gmail.com" "1234" (dbContext()) with
             | Ok (sessionGuid, user) ->
                 sessionGuid |> should not' (equal "")
                 Ok ("", user)
@@ -39,8 +55,7 @@ type MyTests ()  =
             Ok
               ( "",
                 LoggedInUser
-                  { id = 1
-                    gender = Gender.Male
+                  { gender = Gender.Male
                     degree = ""
                     firstName = "Rene"
                     lastName = "Ederer"
@@ -55,24 +70,25 @@ type MyTests ()  =
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal (Some "1")
         actual |> should equal expected
 
+    [<Fact>]
     member this.``register with nonexisting email should login the user and return a Guest``() =
+        let context = dbContext()
         let actualReturnedSessionGuid, actualReturnedUser =
-            match register' "nonexisting@email.com" "password" this.dbContext with
+            match register' "nonexisting@email.com" "password" context with
             | Ok (sessionGuid, user) -> sessionGuid, user
             | _ -> failwith "failure"
 
         let actualDbEmail, actualDbSessionGuid, actualDbPassword, actualDbSalt, actualDbUserId =
             (query {
-                for dbUserValues in this.dbContext.Public.Uservalues do
-                join dbUser in this.dbContext.Public.Users on (dbUserValues.Userid = dbUser.Id)
+                for dbUserValues in context.Public.Uservalues do
+                join dbUser in context.Public.Users on (dbUserValues.Userid = dbUser.Id)
                 where (dbUserValues.Email = "nonexisting@email.com")
                 select (dbUserValues.Email, dbUser.Sessionguid, dbUser.Password, dbUser.Salt, dbUser.Id)
             }).Single()
 
         let expectedUser =
             Guest
-              { id = 3
-                gender = Gender.Unknown
+              { gender = Gender.Unknown
                 degree = ""
                 firstName = ""
                 lastName = ""
@@ -96,11 +112,12 @@ type MyTests ()  =
               Server.generateHashWithSalt "password" actualDbSalt 1000 64,
               Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously
             )
+        context.SubmitUpdates()
 
     [<Fact>]
     member this.``login with correct email and password and unconfirmed email should set the loggedInUser to (Some userId) and return a Guest``() =
         let actual =
-            match loginWithEmailAndPassword' "helmut@goerke.de" "1" this.dbContext with
+            match loginWithEmailAndPassword' "helmut@goerke.de" "1" (dbContext()) with
             | Ok (sessionGuid, user) ->
                 sessionGuid |> should not' (equal "")
                 Ok ("", user)
@@ -110,8 +127,7 @@ type MyTests ()  =
             Ok
               ( "",
                 Guest
-                  { id = 2
-                    gender = Gender.Male
+                  { gender = Gender.Male
                     degree = ""
                     firstName = "Helmut"
                     lastName = "Goerke"
@@ -128,7 +144,7 @@ type MyTests ()  =
 
     [<Fact>]
     member this.``login with existing email and incorrect password should result in Failure``() =
-        let actual = loginWithEmailAndPassword' "rene.ederer.nbg@gmail.com" "wrongPassword" (DB.GetDataContext())
+        let actual = loginWithEmailAndPassword' "rene.ederer.nbg@gmail.com" "wrongPassword" (dbContext())
         let expected : Result<string * User> = Failure "Email or password is wrong."
 
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
@@ -137,13 +153,13 @@ type MyTests ()  =
     [<Fact>]
     member this.``login with nonexisting email should result in Failure``() =
         let expected : Result<string * User> = Failure "Email or password is wrong."
-        let actual = loginWithEmailAndPassword' "nonexisting@email.com" "somePassword" this.dbContext
+        let actual = loginWithEmailAndPassword' "nonexisting@email.com" "somePassword" (dbContext())
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
         actual |> should equal expected
 
     [<Fact>]
     member this.``register with already registered email should result in Failure``() =
-        let actual = register' "rene.ederer.nbg@gmail.com" "password" this.dbContext
+        let actual = register' "rene.ederer.nbg@gmail.com" "password" (dbContext())
         let expected : Result<string * User> = Failure "This email is already registered"
         actual |> should equal expected
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
@@ -151,7 +167,7 @@ type MyTests ()  =
     [<Fact>]
     member this.``logout should set loggedInUser to None and the sessionGuid to None``() =
         Server.getUserSession().LoginUser("1") |> Async.RunSynchronously
-        let actual = logout' 1 this.dbContext 
+        let actual = logout' 1 (dbContext())
         let expected : Result<unit> = Ok ()
         actual |> should equal expected
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None

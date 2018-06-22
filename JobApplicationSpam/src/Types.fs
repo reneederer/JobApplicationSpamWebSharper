@@ -14,7 +14,6 @@ module Types =
 
     type Settings = AppSettings<"Web.config">
 
-
     type DB =
         SqlDataProvider<
             DatabaseVendor = FSharp.Data.Sql.Common.DatabaseProviderTypes.POSTGRESQL,
@@ -22,12 +21,14 @@ module Types =
             ResolutionPath = "bin",
             IndividualsAmount = 1000,
             UseOptionTypes = true>
-
+    
     type FilePage =
         { name : string
           size : int
           path : string
+//          requiredVariables : list<string>
         }
+
     type HtmlPage =
         { name : string }
     type Page =
@@ -38,11 +39,17 @@ module Types =
             match this with
             | FilePage filePage -> filePage.name
             | HtmlPage htmlPage -> htmlPage.name
+    
+    type CustomVariable =
+        { index : int
+          text : string
+        }
+
     type Document =
         { name : string
           pages : list<Page>
           id : int
-          customVariables : string
+          customVariables : list<CustomVariable>
           jobName : string
           emailSubject : string
           emailBody : string
@@ -81,8 +88,7 @@ module Types =
         { email : string
         }
     type UserValues =
-        { id : int
-          gender : Gender
+        { gender : Gender
           degree : string
           firstName : string
           lastName : string
@@ -94,8 +100,7 @@ module Types =
           mobilePhone : string
         }
     let emptyUserValues =
-        { id = 0
-          gender = Gender.Unknown
+        { gender = Gender.Unknown
           degree = ""
           firstName = ""
           lastName = ""
@@ -164,7 +169,7 @@ module Types =
           emailSubject : string
           emailBody : string
           jobName : string
-          customVariables : string
+          customVariables : list<CustomVariable>
           statusHistory : list<DateTime * int>
         }
     type EmptyTextTagAction =
