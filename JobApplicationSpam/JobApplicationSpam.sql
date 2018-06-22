@@ -121,11 +121,11 @@ create table link ( id serial primary key,
 					name text not null,
 					guid text not null);
 
-insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, null, current_date);
+insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('r99n/4/4NGGeD7pn4I1STI2rI+BFweUmzAqkxwLUzFP9aB7g4zR5CBHx+Nz2yn3NbiY7/plf4ZRGPaXXnQvFsA==', 'JjjYQTWgutm4pv/VnzgHf6r4NjNrAVcTq+xnR7/JsRGAIHRdrcw3IMVrzngn2KPRakfX/S1kl9VrqwAT+T02Og==', null, 'badd2cda38284db49c916dfa98650afb', current_date);
 insert into userValues (userId, email, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values(1, 'someMail@myMail.de', 'f', 'Prof.', 'Astrid', 'Meier', 'Blaustr. 4', '80921', 'Muenchen', 'mein Telefon', 'mein Handy');
 insert into userValues (userId, email, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values(1, 'rene.ederer.nbg@gmail.com', 'm', '', 'Rene', 'Ederer', 'Raabstr. 24A', '90429', 'Nuernberg', 'kein Telefon', 'kein Handy');
 
-insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('741f5ukEhGVNSUlqZLz7YAgfHGR8wpzsoT5LqtYsESz7PxdUbyUOgLQFxafgQJ6iZ7H3VumrEjcLDzJ84wtIXA==', 'aQnjb/L1KEg285kjQKkHPy/kuNcJOWZRRziBi+CjtFximm0/7AFaBbwZC4WJXXkXCcW71CRtc4G9Oulajayd4A==', '7fb7ee1bda734c95bdfc78991cd0e5d0', null, current_date);
+insert into users (password, salt, confirmEmailGuid, sessionGuid, createdOn) values('741f5ukEhGVNSUlqZLz7YAgfHGR8wpzsoT5LqtYsESz7PxdUbyUOgLQFxafgQJ6iZ7H3VumrEjcLDzJ84wtIXA==', 'aQnjb/L1KEg285kjQKkHPy/kuNcJOWZRRziBi+CjtFximm0/7AFaBbwZC4WJXXkXCcW71CRtc4G9Oulajayd4A==', '7fb7ee1bda734c95bdfc78991cd0e5d0', '81fe2f76d6e3484887d2f6e7cae7196f', current_date);
 insert into userValues (userId, email, gender, degree, firstName, lastName, street, postcode, city, phone, mobilePhone) values(2, 'helmut@goerke.de', 'm', '', 'Helmut', 'Goerke', 'Raabstr. 24A', '90429', 'Nuernberg', '0911', '0151');
 insert into document(userValuesId, name, jobName, emailSubject, emailBody) values( 1, 'welt', 'Fachinformatiker', 'subject1', 'body1');
 insert into document( userValuesId,name, jobName, emailSubject, emailBody) values( 1, 'hallo', 'Test', 'subject2', 'body2');

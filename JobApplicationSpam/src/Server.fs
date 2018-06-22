@@ -316,6 +316,38 @@ module Internal =
                )
         | _ -> Failure "This email is already registered"
 
+    let loginWithSessionGuid' (sessionGuid : string) (dbContext : DB.dataContext) =
+        let usersWithSessionGuid =
+            query {
+                for user in dbContext.Public.Users do
+                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
+                where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
+                sortByDescending userValues.Id
+                select
+                    ( user.Id,
+                      user.Confirmemailguid, 
+                      { gender = Gender.FromString userValues.Gender
+                        degree = userValues.Degree
+                        firstName = userValues.Firstname
+                        lastName = userValues.Lastname
+                        street = userValues.Street
+                        postcode = userValues.Postcode
+                        city = userValues.City
+                        email = userValues.Email
+                        phone = userValues.Phone
+                        mobilePhone = userValues.Mobilephone
+                      })
+            } |> List.ofSeq
+        match usersWithSessionGuid with
+        | [] -> Failure "Session guid unknown"
+        | (userId, None, user)::_ ->
+            getUserSession().LoginUser (userId |> string) |> Async.RunSynchronously
+            Ok (LoggedInUser user)
+        | (userId, Some _, user)::_ ->
+             getUserSession().LoginUser (userId |> string) |> Async.RunSynchronously
+             Ok (Guest user)
+        | _-> Error
+
     let saveAsNewDocument' (document : Document) userValuesId (dbContext : DB.dataContext) =
         let dbDocument = dbContext.Public.Document.Create()
         dbDocument.Jobname <- document.jobName
@@ -387,7 +419,7 @@ module Server =
                 log.Error "UserId was not an integer"
                 failwith "UserId was not an integer"
 
-    let withCurrentUser (f : int -> 'a -> 'b) =
+    let private withCurrentUser (f : int -> 'a -> 'b) =
         let oUserId = getUserSession().GetLoggedInUser() |> Async.RunSynchronously
         match oUserId with
         | None ->
@@ -400,7 +432,7 @@ module Server =
                 log.Error "UserId was not an integer"
                 failwith "UserId was not an integer"
 
-    let toRootedPath path =
+    let private toRootedPath path =
         let toRootedPath' userId path () =
             if System.IO.Path.IsPathRooted path
             then path
@@ -411,41 +443,14 @@ module Server =
     let loginWithEmailAndPassword (email : string) (password : string) =
         async { return loginWithEmailAndPassword' email password (DB.GetDataContext()) }
 
-
-
     [<Remote>]
     let loginWithSessionGuid (sessionGuid : string) =
-        let usersWithSessionGuid (dbContext : DB.dataContext) =
-            query {
-                for user in dbContext.Public.Users do
-                join userValues in dbContext.Public.Uservalues on (user.Id = userValues.Userid)
-                where (user.Sessionguid.IsSome && user.Sessionguid.Value = sessionGuid)
-                select
-                    ( user.Confirmemailguid, 
-                      { gender = Gender.FromString userValues.Gender
-                        degree = userValues.Degree
-                        firstName = userValues.Firstname
-                        lastName = userValues.Lastname
-                        street = userValues.Street
-                        postcode = userValues.Postcode
-                        city = userValues.City
-                        email = userValues.Email
-                        phone = userValues.Phone
-                        mobilePhone = userValues.Mobilephone
-                      })
-            }
-        async {
-            match usersWithSessionGuid |> readDB |> Async.RunSynchronously |> Seq.toList with
-            | [] -> return Failure "Session guid unknown"
-            | [None, user] -> return Ok (LoggedInUser user)
-            | [Some _, user] -> return Ok (Guest user)
-            | _-> return Error
-        }
+        loginWithSessionGuid' sessionGuid |> readDB
     
 
     [<Remote>]
     let register (email : string) (password : string) =
-        //TODO send confirmation email
+        //TODO end confirmation email
         let dbContext = DB.GetDataContext()
         let r = Internal.register' email password dbContext
         async { return r }

@@ -146,6 +146,58 @@ type MyTests ()  =
         let actual = loginWithEmailAndPassword' "nonexisting@email.com" "somePassword" (dbContext())
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
         actual |> should equal expected
+    
+    [<Fact>]
+    member this.``login with existing session guid of confirmed user should return the user``() =
+        let context = dbContext()
+        let expected =
+            Ok <|
+              LoggedInUser
+                { gender = Gender.Male
+                  degree = ""
+                  firstName = "Rene"
+                  lastName = "Ederer"
+                  street = "Raabstr. 24A"
+                  postcode = "90429"
+                  city = "Nuernberg"
+                  email = "rene.ederer.nbg@gmail.com"
+                  phone = "kein Telefon"
+                  mobilePhone = "kein Handy"
+                }
+        let actual = loginWithSessionGuid' "badd2cda38284db49c916dfa98650afb" context
+        actual |> should equal expected
+        Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal (Some "1")
+
+    [<Fact>]
+    member this.``login with existing session guid of non-confirmed user should return the guest``() =
+        let context = dbContext()
+        let expected =
+            Ok <|
+              Guest
+                { gender = Gender.Male
+                  degree = ""
+                  firstName = "Helmut"
+                  lastName = "Goerke"
+                  street = "Raabstr. 24A"
+                  postcode = "90429"
+                  city = "Nuernberg"
+                  email = "helmut@goerke.de"
+                  phone = "0911"
+                  mobilePhone = "0151"
+                }
+        let actual = loginWithSessionGuid' "81fe2f76d6e3484887d2f6e7cae7196f" context
+        actual |> should equal expected
+        Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal (Some "2")
+
+    [<Fact>]
+    member this.``login with nonexisting session guid should return Failure``() =
+        let context = dbContext()
+        let expected : Result<User> =
+            Failure "Session guid unknown"
+        let actual = loginWithSessionGuid' "someNonexistingGuid" context
+        actual |> should equal expected
+        Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
+
 
     [<Fact>]
     member this.``register with already registered email should result in Failure``() =
