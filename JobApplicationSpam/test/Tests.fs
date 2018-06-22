@@ -17,11 +17,11 @@ type InitTest () =
             { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted
               Timeout = TimeSpan.FromSeconds 100000. }
     member val scope =
-        new TransactionScope(TransactionScopeOption.Required, TransactionOptions(IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted)) with get, set
+        new TransactionScope(TransactionScopeOption.RequiresNew, TransactionOptions(IsolationLevel = System.Transactions.IsolationLevel.ReadCommitted)) with get, set
     interface IDisposable with
         member this.Dispose() =
             Server.getUserSession().Logout() |> Async.RunSynchronously
-            this.scope.Complete()
+            this.scope.Dispose()
             this.scope <-
                 new TransactionScope(TransactionScopeOption.RequiresNew, TransactionOptions(IsolationLevel = IsolationLevel.ReadCommitted))
 
@@ -31,16 +31,7 @@ type MyTests ()  =
         let options : FSharp.Data.Sql.Transactions.TransactionOptions =
                 { IsolationLevel = FSharp.Data.Sql.Transactions.IsolationLevel.ReadCommitted
                   Timeout = TimeSpan.FromSeconds 100000. }
-        let mutable m = None
-        let mutable i = 0
-        while m.IsNone || i < 10 do
-            try 
-                m <- Some <| DB.GetDataContext("Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest; Enlist=true", options, 100000)
-            with 
-            | _ -> ()
-            //System.Threading.Thread.Sleep 2000
-            i <- i + 1
-        m.Value
+        DB.GetDataContext("Server=localhost; Port=5432; User Id=spam; Password=Steinmetzstr9!@#$; Database=jobapplicationspamtest; Enlist=true", options, 100000)
 
     [<Fact>]
     member this.``login with correct email and password and confirmed email should set the loggedInUser to (Some userId) and return a LoggedInUser``() =
@@ -112,7 +103,6 @@ type MyTests ()  =
               Server.generateHashWithSalt "password" actualDbSalt 1000 64,
               Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously
             )
-        context.SubmitUpdates()
 
     [<Fact>]
     member this.``login with correct email and password and unconfirmed email should set the loggedInUser to (Some userId) and return a Guest``() =
@@ -171,3 +161,29 @@ type MyTests ()  =
         let expected : Result<unit> = Ok ()
         actual |> should equal expected
         Server.getUserSession().GetLoggedInUser() |> Async.RunSynchronously |> should equal None
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
